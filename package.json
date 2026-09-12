@@ -1,0 +1,13 @@
+{
+  "name": "spellvault-tcg",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "scripts": {
+    "dev": "pnpm --filter storefront dev",
+    "build": "pnpm --filter storefront build",
+    "lint": "pnpm --filter storefront lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.0"
+  }
+}

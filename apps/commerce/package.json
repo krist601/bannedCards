@@ -1,0 +1,22 @@
+{
+  "name": "commerce",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "medusa develop",
+    "build": "medusa build",
+    "start": "medusa start",
+    "db:generate": "medusa db:generate tcgCatalog",
+    "db:migrate": "medusa db:migrate"
+  },
+  "dependencies": {
+    "@medusajs/framework": "^2.20.1",
+    "@medusajs/medusa": "^2.20.1"
+  },
+  "devDependencies": {
+    "@medusajs/cli": "^2.20.1",
+    "@types/node": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.0.0"
+  }
+}

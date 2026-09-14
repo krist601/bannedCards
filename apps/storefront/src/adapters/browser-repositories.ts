@@ -1,24 +1,30 @@
-import { isCart } from "@/application/cart";
+import { addToCart, isCart, setCartQuantity } from "@/application/cart";
 import type { CartRepository, CustomerSessionRepository } from "@/application/ports";
 import type { Cart } from "@/domain/commerce";
-
 const cartKey = "banned-cards-cart";
 const customerKey = "banned-cards-customer";
-
+function load(): Cart {
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(cartKey) ?? "[]");
+    return isCart(value) ? value : [];
+  } catch { return []; }
+}
+function save(cart: Cart): Cart {
+  window.localStorage.setItem(cartKey, JSON.stringify(cart));
+  return cart;
+}
 export const browserCartRepository: CartRepository = {
-  load: () => {
-    const raw = window.localStorage.getItem(cartKey);
-    if (!raw) return [];
-    try {
-      const value: unknown = JSON.parse(raw);
-      return isCart(value) ? value : [];
-    } catch { return []; }
-  },
-  save: (cart: Cart) => window.localStorage.setItem(cartKey, JSON.stringify(cart))
+  load: async () => load(),
+  add: async (item) => save(addToCart(load(), item)),
+  setQuantity: async (id, quantity) => save(setCartQuantity(load(), id, quantity)),
+  clearLocal: () => window.localStorage.removeItem(cartKey)
 };
-
 export const browserCustomerSession: CustomerSessionRepository = {
-  load: () => window.localStorage.getItem(customerKey) ?? "",
-  save: (name) => window.localStorage.setItem(customerKey, name),
-  clear: () => window.localStorage.removeItem(customerKey)
+  load: async () => window.localStorage.getItem(customerKey) ?? "",
+  login: async (email) => {
+    const name = email.split("@")[0];
+    window.localStorage.setItem(customerKey, name);
+    return name;
+  },
+  clear: async () => { window.localStorage.removeItem(customerKey); }
 };

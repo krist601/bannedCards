@@ -1,17 +1,22 @@
 import type { Cart, CatalogueItem } from "@/domain/commerce";
 
-/** Outbound ports. Infrastructure implements these; use cases depend on them. */
+/** Async outbound ports; no framework or vendor types cross this boundary. */
 export interface CatalogueRepository {
-  list(): CatalogueItem[];
+  list(): Promise<CatalogueItem[]>;
 }
-
 export interface CartRepository {
-  load(): Cart;
-  save(cart: Cart): void;
+  load(): Promise<Cart>;
+  add(item: CatalogueItem): Promise<Cart>;
+  setQuantity(lineId: string, quantity: number): Promise<Cart>;
+  clearLocal(): void;
 }
-
 export interface CustomerSessionRepository {
-  load(): string;
-  save(name: string): void;
-  clear(): void;
+  load(): Promise<string>;
+  login(email: string, password: string): Promise<string>;
+  clear(): Promise<void>;
+}
+export interface CommerceRepositories {
+  catalogue: CatalogueRepository;
+  cart: CartRepository;
+  customer: CustomerSessionRepository;
 }

@@ -14,13 +14,14 @@ export type CatalogueItem = {
   collection: Exclude<Collection, "All">;
   finish: string;
   condition: string;
-  price: number;
-  stock: number;
+  price: number | null;
+  stock: number | null;
+  imageUrl?: string;
   colors: string;
   theme: string;
   /** Flexible game-specific data, e.g. collector number or Pokémon rarity. */
   attributes?: Record<string, string>;
 };
 
-export type CartLine = CatalogueItem & { quantity: number };
+export type CartLine = Omit<CatalogueItem, "price"> & { price: number; quantity: number; lineId?: string };
 export type Cart = CartLine[];

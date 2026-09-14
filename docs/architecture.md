@@ -1,32 +1,71 @@
 # Architecture
 
-Banned Cards uses a pragmatic hexagonal architecture. The storefront can change from demo data to Medusa without changing its business rules or presentation components.
+Banned Cards uses pragmatic hexagonal boundaries:
 
 ```text
-Next.js page (driving adapter)
-  -> application cart use cases
-  -> domain commerce types
-  -> repository ports
-       -> browser local storage (current adapter)
-       -> Medusa Store API (production adapter)
-
-Medusa catalog module (driving adapter for administration)
-  -> generic Game / Product / Listing records
-  -> card-specific Printing / CardListing records when a product is a single
+Next.js page -> useCommerce presentation hook -> async repository ports
+                                             -> demo browser adapters (explicit opt-in)
+                                             -> Medusa Store API adapters
+Application cart calculations -> framework-free domain types
 ```
 
-## Core concepts
+`domain` and `application` import no React, Next.js, Medusa, database or payment code. The composition root in `adapters/commerce-repositories.ts` selects infrastructure. `presentation/use-commerce.ts` coordinates loading, errors and mutations. `page.tsx` renders view state and forwards user actions.
 
-- **Game** identifies Magic, Pokémon, One Piece, or another game.
-- **Product** is a generic sellable concept with kind `single`, `sealed`, or `accessory`.
-- **Listing** represents a purchasable inventory record, including price and quantity.
-- Card-only data such as collector number, rarity, and finish belongs in optional attributes or the printing records.
+## Medusa integration
 
-## Migration path
+The default is Medusa mode. Missing configuration or API failures are visible errors; there is no automatic demo fallback. Copy `apps/storefront/.env.example` to `.env.local` and configure the backend URL, publishable Store API key and Chilean CLP region ID. Set `NEXT_PUBLIC_COMMERCE_MODE=demo` for an offline demo.
 
-1. `demoCatalogueRepository` is the temporary catalog adapter.
-2. Implement a `medusaCatalogueRepository` that satisfies `CatalogueRepository`.
-3. Replace browser cart and customer adapters with Medusa Store API adapters.
-4. Add a Mercado Pago payment adapter behind a payment port.
+- Catalog: paginated `GET /store/products`, with region-specific calculated prices and variant inventory. Each domain catalog ID is a core **variant ID**. Unpriced and non-CLP variants are excluded. Amounts are Medusa v2 currency units, with no cents conversion.
+- Cart: lazy `POST /store/carts`, retrieve, add variant, update or delete line item, then render API-returned quantities and unit prices. Domain `lineId` holds the separate Medusa line-item ID. Only the remote cart ID is kept in localStorage, namespaced by backend and region. Demo carts are never imported. Mutations are serialized; API errors preserve the last successful UI state. Missing/completed carts are discarded, while server failures are surfaced.
+- Customer: existing-account email/password login, exchange the short-lived JWT for a Medusa session cookie, `GET /store/customers/me`, and `DELETE /auth/session` logout. Passwords and JWTs are not persisted in browser storage. Logout discards the local cart reference. Registration, password recovery, guest-cart transfer and cross-device account carts remain subsequent work.
+- Checkout remains disabled. Cart subtotal is the sum of returned unit prices and quantities; shipping, taxes and promotional adjustments are not yet presented. Cart additions do not reserve inventory.
 
-The application and domain layers must not import Next.js, Medusa, PostgreSQL, or Mercado Pago.
+## Backend prerequisites
+
+1. Start PostgreSQL, configure `apps/commerce/.env`, run Medusa migrations and start the backend.
+2. Configure a region with currency `clp` and Chile, a sales channel, a stock location and its sales-channel association.
+3. Create a publishable API key associated with that sales channel.
+4. Publish core Medusa products and variants with CLP prices and inventory at the associated stock location.
+5. For local session cookies, use `localhost` consistently for both applications. Configure `STORE_CORS` and `AUTH_CORS` with the exact storefront origin (`http://localhost:3000` locally). Production requires HTTPS and a same-site storefront/backend arrangement with appropriate secure cookie settings; unrelated domains may block session cookies.
+6. Use an existing registered Medusa customer to test login. Admin users are not customer accounts.
+
+All `NEXT_PUBLIC_*` values are public. Never supply admin keys, database passwords, JWT signing secrets or Mercado Pago secrets there. Set backend signing secrets independently before production.
+
+## TCG catalog bridge
+
+The custom `tcg-catalog` Product/Listing and card-specific records remain intact. They are not automatically exposed by Medusa's core `/store/products` endpoint. Until a synchronization workflow is added, provision core products/variants through Medusa and record their IDs in `Listing.product_id` / `Listing.variant_id`. Core Medusa pricing and inventory are authoritative for storefront purchases; changing custom `price_clp` / `quantity` alone does not update them.
+
+## Card images
+
+`CatalogueItem.imageUrl` is provider-neutral. The demo catalogue uses Scryfall CDN URLs, while the Medusa adapter reads `metadata.image_url` first and then the core product `thumbnail`. `CardPrinting.image_url` already stores the source image reference in the custom catalogue.
+
+For production, an importer should identify a printing by Scryfall ID or set code plus collector number, copy the selected image into S3-compatible object storage, and save the resulting public URL in Medusa. MinIO can provide the same object-storage interface in local Docker; Cloudflare R2 or another S3-compatible service can be used in production. Keep the original Scryfall ID and source URL so images can be refreshed and attributed. Do not fetch the Scryfall API on storefront page loads.
+
+The adapter currently reads display metadata from the core product and variant (variant values override product values):
+
+| Metadata | Values |
+| --- | --- |
+| `game` | `magic-the-gathering`, `pokemon`, `one-piece`, `other` |
+| `kind` | `single`, `sealed`, `accessory` |
+| `set` | Expansion/product series name |
+| `collection` | `Middle-earth` or `Latest` |
+| `finish`, `condition`, `colors` | Display text |
+| `theme` | `fae`, `academy`, `marvel`, `ring`, `shire`, `mist` |
+
+Missing metadata uses neutral defaults. The existing visual design still emphasizes Magic. A future backend workflow should create/link core variants, synchronize descriptive metadata, and migrate commercial ownership away from duplicate custom price/quantity fields.
+
+## Validation
+
+```sh
+pnpm --filter storefront test
+pnpm --filter storefront build
+pnpm --filter commerce exec tsc --noEmit
+```
+
+Adapter tests use mocked HTTP responses and exercise pagination, price units, concurrent creation, line identifiers, stale carts, failures, currency validation and session exchange. They do not substitute for live Medusa verification.
+
+Live smoke test after configuration: load real variants; add twice; reload; change quantity; remove a line; exceed stock; log in with valid/invalid customer credentials; reload the session; log out; stop Medusa and verify the error/retry path. Verify checkout stays unavailable.
+
+Next milestones: custom-to-core catalog synchronization, customer registration/recovery and cart transfer, checkout addresses/shipping, Medusa order completion and reservation lifecycle, then Mercado Pago provider and idempotent verified webhooks.
+
+API references: [product pricing](https://docs.medusajs.com/resources/storefront-development/products/price), [session authentication](https://docs.medusajs.com/resources/storefront-development/customers/login), [customer retrieval](https://docs.medusajs.com/resources/storefront-development/customers/retrieve). Route contracts were also checked against the installed Medusa package.

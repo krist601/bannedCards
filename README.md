@@ -14,7 +14,7 @@ Online TCG storefront, beginning with Magic: The Gathering and designed to suppo
 3. Copy `apps/storefront/.env.example` to `apps/storefront/.env.local`.
 4. Run `pnpm dev` and open `http://localhost:3000`.
 
-The first UI is populated with example inventory only. Production inventory and checkout will be supplied by Medusa and Mercado Pago.
+The storefront defaults to the Medusa Store API. Configure the public backend URL, publishable key and CLP region in `.env.local`; see [backend prerequisites](docs/architecture.md). For an offline preview, explicitly set `NEXT_PUBLIC_COMMERCE_MODE=demo`. Checkout and Mercado Pago remain unavailable.
 
 ## Architecture
 

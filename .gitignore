@@ -7,4 +7,8 @@ node_modules
 .turbo
 coverage
 *.log
+.DS_Store
 .local-config
+
+.test-build
+*.tsbuildinfo

@@ -39,3 +39,52 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 @media(max-width:800px){.catalogue-layout{grid-template-columns:1fr}.card-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.site-header{gap:16px}.brand{font-size:.95rem}}
 @media(max-width:520px){.site-header{flex-wrap:wrap;gap:10px}.brand{order:1}.header-cart{order:2;margin-left:auto}.header-search{order:3;flex-basis:100%;max-width:none}.hero{padding:28px 20px}.card-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.product-details{padding:8px}.product h3{font-size:.95rem}.cart-notice[role="status"]{right:16px;bottom:16px}.drawer .text-button{max-width:none}.catalogue{scroll-margin-top:130px}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.set-card{transition:none}}
+
+/* API-backed set directory. */
+.catalogue-layout{grid-template-columns:230px minmax(0,1fr)}
+.set-directory{border-top:1px solid var(--line);margin-top:12px;padding-top:18px;width:100%}
+.set-directory label{display:block;font-weight:bold;margin-bottom:10px}
+.set-directory input{width:100%;min-width:0;border:1px solid var(--line);border-radius:4px;background:var(--paper);padding:10px}
+.filters .set-filter{display:flex;align-items:center;gap:10px;width:100%;padding:9px 6px;border-radius:4px;line-height:1.4}
+.filters .set-filter:hover{background:#e8e6dc}
+.filters .set-filter.filter-active{background:#e0e5d4}
+.set-icon{width:22px;height:22px;object-fit:contain;flex:0 0 22px}
+.set-icon-fallback{display:inline-flex;align-items:center;justify-content:center;font-size:24px}
+.filters .set-page-control{border:1px solid var(--line);border-radius:4px;text-align:center;margin-top:18px;padding:10px;width:100%;color:var(--green)}
+.filters .selected-set{margin:12px 0 0}
+.set-directory [role="status"],.set-directory [role="alert"]{padding:10px 0;font-size:.8rem}
+@media(max-width:800px){.catalogue-layout{grid-template-columns:1fr}.filters{gap:8px 20px}.set-directory{flex-basis:100%}}
+
+
+.ranking-caption{font-size:.85rem;color:var(--muted);margin:8px 0 0}
+
+.set-page-viewport{overflow:hidden;margin-top:12px;scroll-margin-top:140px}
+.set-page{display:flex;flex-direction:column}
+.set-page-next{animation:sets-next .35s ease-out}
+.set-page-previous{animation:sets-previous .35s ease-out}
+@keyframes sets-next{from{transform:translateY(100%);opacity:.3}to{transform:translateY(0);opacity:1}}
+@keyframes sets-previous{from{transform:translateY(-100%);opacity:.3}to{transform:translateY(0);opacity:1}}
+@media(prefers-reduced-motion:reduce){.set-page-next,.set-page-previous{animation:none}}
+
+/* Keep desktop filters within the catalogue and below the sticky header. */
+@media(min-width:801px){
+  .catalogue-layout>.filters{
+    position:sticky;
+    top:88px;
+    align-self:start;
+    max-height:calc(100dvh - 104px);
+    overflow-y:auto;
+    overscroll-behavior-y:contain;
+    scrollbar-width:thin;
+    padding-right:8px;
+  }
+}
+
+.card-size-control{width:100%;flex-basis:100%;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:12px}
+.card-size-control label{display:flex;justify-content:space-between;font-weight:bold;font-size:.88rem}
+.card-size-control output{font-weight:normal;color:var(--muted)}
+.card-size-control input{display:block;width:100%;margin:12px 0 0;accent-color:var(--green);cursor:pointer}
+.card-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,calc(165px * var(--card-scale,1))),1fr))}
+.card-grid>.product{max-width:calc(220px * var(--card-scale,1))}
+@media(max-width:800px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,calc(150px * var(--card-scale,1))),1fr))}}
+@media(max-width:520px){.card-grid{grid-template-columns:repeat(auto-fill,minmax(min(100%,calc((100% - 10px) / 2 * var(--card-scale,1))),1fr))}}

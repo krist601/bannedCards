@@ -11,6 +11,7 @@ export type CatalogueItem = {
   kind: ProductKind;
   name: string;
   set: string;
+  setCode?: string;
   collection: Exclude<Collection, "All">;
   finish: string;
   condition: string;

@@ -32,7 +32,7 @@ export function mapItem(product: Product, variant: Variant, amount: number): Cat
   return {
     id: variant.id, name: product.title, game: games.includes(meta.game as Game) ? meta.game as Game : "other",
     kind: kinds.includes(meta.kind as ProductKind) ? meta.kind as ProductKind : "single",
-    set: str("set"), collection: meta.collection === "Middle-earth" ? "Middle-earth" : "Latest",
+    set: str("set"), setCode: str("set_code").toLowerCase(), collection: meta.collection === "Middle-earth" ? "Middle-earth" : "Latest",
     finish: str("finish", "Standard"), condition: str("condition", "See listing"), price: amount,
     stock: variant.manage_inventory === false || variant.allow_backorder ? null : variant.inventory_quantity ?? 0,
     imageUrl: str("image_url", product.thumbnail ?? "") || undefined,
@@ -47,6 +47,7 @@ export function mapCatalogueCard(card: CatalogueCard): CatalogueItem {
     game: "magic-the-gathering",
     kind: "single",
     set: card.set,
+    setCode: card.set_code.toLowerCase(),
     collection: card.collection,
     finish: card.finish,
     condition: card.condition,

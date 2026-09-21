@@ -69,3 +69,15 @@ Live smoke test after configuration: load real variants; add twice; reload; chan
 Next milestones: custom-to-core catalog synchronization, customer registration/recovery and cart transfer, checkout addresses/shipping, Medusa order completion and reservation lifecycle, then Mercado Pago provider and idempotent verified webhooks.
 
 API references: [product pricing](https://docs.medusajs.com/resources/storefront-development/products/price), [session authentication](https://docs.medusajs.com/resources/storefront-development/customers/login), [customer retrieval](https://docs.medusajs.com/resources/storefront-development/customers/retrieve). Route contracts were also checked against the installed Medusa package.
+
+## Set directory and best sellers
+
+The running API lives in the sibling `bannedCards-server` repository. The sidebar reads `GET /store/tcg/sets?limit=10&offset=0`, returning `{ sets, offset, nextOffset, previousOffset, latestSetCodes }`. Sets use the same family grouping and visibility as the CMS (`groupCmsSets`), with one main-set entry per family and no block divisions. A hidden parent hides its whole family; hidden divisions are omitted. Each entry supplies visible member `setCodes`. Filtering and `q` search happen before pagination. Newest sets appear first; undated sets follow, and future releases are labeled Upcoming. No per-set inventory counts are exposed.
+
+The sidebar displays up to 10 sets. “Load more sets” replaces them with the next page; “Load previous sets” appears above the list after page one. Page entry animates vertically, respects reduced motion, and focuses/scrolls the list into view. Search resets pagination; window focus refreshes CMS visibility.
+
+`All singles`, `Latest releases`, and `The hottest` remain above the set directory. Set selection matches the family’s visible `setCodes`. Latest releases uses the two newest released expansion/core/draft-innovation sets and their related products. Hottest uses the backend ranking of paid units in orders created during the rolling last 30 days, subtracting received returns and excluding canceled orders. Rankings are scoped to the publishable key's sales channels. An empty sales history produces an empty list, not an invented ranking.
+
+In the backend, run `pnpm sets:sync` for the initial import or an immediate refresh. The `sync-set-directory` Medusa job runs daily in a shared/worker process. It saves set metadata to the existing Magic catalogue (`handle: magic`) and downloads SVG icons through Medusa's File Module into the configured S3-compatible storage (MinIO locally, S3/R2 in production). Icons are not bundled into the frontend and do not require a frontend deployment when a set is added. Failed downloads retain the previous icon, or display a generic symbol until the next successful sync. A failed Scryfall request leaves the saved directory intact. This imports set metadata only; importing card printings/inventory remains a separate operation.
+
+Demo mode has a small explicit fixture behind `/api/demo/sets` and no fabricated sales. Those routes return 404 outside demo mode. Production does not call Scryfall during page loads.

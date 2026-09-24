@@ -84,3 +84,10 @@ test('a non-CLP cart is rejected instead of mislabeled as pesos', async () => {
   const repo = setup(() => ({ cart: { ...cart, currency_code: 'usd' } }));
   await assert.rejects(repo.cart.add({ id: variant.id }), /CLP/);
 });
+test('bulk add sends the requested quantity once and rejects invalid quantities before requests',async()=>{
+ const repo=setup(()=>({cart:{...cart,items:[{...cart.items[0],quantity:4}]}}));
+ const result=await repo.cart.add({id:variant.id},4);
+ const writes=repo.calls.filter(call=>call.url.endsWith('/line-items'));
+ assert.equal(writes.length,1);assert.deepEqual(JSON.parse(writes[0].body),{variant_id:variant.id,quantity:4});assert.equal(result[0].quantity,4);
+ const count=repo.calls.length;await assert.rejects(repo.cart.add({id:variant.id},0));await assert.rejects(repo.cart.add({id:variant.id},1.5));assert.equal(repo.calls.length,count);
+});

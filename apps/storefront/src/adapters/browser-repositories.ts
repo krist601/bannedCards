@@ -15,7 +15,12 @@ function save(cart: Cart): Cart {
 }
 export const browserCartRepository: CartRepository = {
   load: async () => load(),
-  add: async (item) => save(addToCart(load(), item)),
+  add: async (item, quantity = 1) => {
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw new Error("Invalid quantity.");
+    let cart = load();
+    for (let index = 0; index < quantity; index++) cart = addToCart(cart, item);
+    return save(cart);
+  },
   setQuantity: async (id, quantity) => save(setCartQuantity(load(), id, quantity)),
   clearLocal: () => window.localStorage.removeItem(cartKey)
 };

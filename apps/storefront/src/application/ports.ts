@@ -6,7 +6,7 @@ export interface CatalogueRepository {
 }
 export interface CartRepository {
   load(): Promise<Cart>;
-  add(item: CatalogueItem): Promise<Cart>;
+  add(item: CatalogueItem, quantity?: number): Promise<Cart>;
   setQuantity(lineId: string, quantity: number): Promise<Cart>;
   clearLocal(): void;
 }

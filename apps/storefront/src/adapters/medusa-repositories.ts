@@ -10,6 +10,7 @@ type Variant = {
 };
 type Product = { id: string; title: string; thumbnail?: string | null; metadata?: Metadata; variants?: Variant[] };
 type CatalogueCard = {
+  added_at?: string | null;
   id: string; printing_id: string; listing_id: string | null; variant_id: string | null;
   name: string; set: string; set_code: string; collector_number: string; rarity: string | null;
   condition: string; language: string | null; finish: string; price_clp: number | null;
@@ -58,6 +59,7 @@ export function mapCatalogueCard(card: CatalogueCard): CatalogueItem {
     theme: card.set_code.toLowerCase() === "ltr" ? "ring" : "mist",
     attributes: {
       printingId: card.printing_id,
+      ...(card.added_at ? { addedAt: card.added_at } : {}),
       collectorNumber: card.collector_number,
       ...(card.listing_id ? { listingId: card.listing_id } : {}),
       ...(card.variant_id ? { variantId: card.variant_id } : {}),
@@ -134,14 +136,15 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     } },
     cart: {
       load: () => serial(async () => { const cart = await current(); return cart ? mapCart(cart) : []; }),
-      add: item => serial(async () => {
+      add: (item, quantity = 1) => serial(async () => {
+        if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw new Error("Quantity must be between 1 and 999.");
         let cart = await current();
         if (!cart) {
           ({ cart } = await request<{ cart: RemoteCart }>("/store/carts", "POST", { region_id: config.regionId }));
           mapCart(cart);
           storage.setItem(key, cart.id);
         }
-        const result = await request<{ cart: RemoteCart }>(`/store/carts/${encodeURIComponent(cart.id)}/line-items`, "POST", { variant_id: item.id, quantity: 1 });
+        const result = await request<{ cart: RemoteCart }>(`/store/carts/${encodeURIComponent(cart.id)}/line-items`, "POST", { variant_id: item.id, quantity });
         return mapCart(result.cart);
       }),
       setQuantity: (lineId, quantity) => serial(async () => {

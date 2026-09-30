@@ -1,0 +1,11 @@
+"use client";
+import {GoogleButton} from "./google-button";
+import {useEffect,useRef,useState} from 'react';
+import {loadOrders,type AccountOrder} from '@/adapters/account-repository';
+import {useLocale} from './locale-provider';
+export function AccountPanel({customer,onClose,onLogout,demo}:{customer:string;onClose():void;onLogout():void;demo:boolean}){
+ const {t,locale}=useLocale();const dialog=useRef<HTMLDialogElement>(null);const [orders,setOrders]=useState<AccountOrder[]>([]),[count,setCount]=useState(0),[offset,setOffset]=useState(0),[retry,setRetry]=useState(0),[error,setError]=useState(false),[loading,setLoading]=useState(true);
+ useEffect(()=>{dialog.current?.showModal();},[]);
+ useEffect(()=>{let active=true;setLoading(true);setError(false);(demo?Promise.resolve({orders:[],count:0}):loadOrders(offset)).then(data=>{if(active){setOrders(data.orders);setCount(data.count);}}).catch(()=>{if(active)setError(true);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[offset,retry,demo]);
+ return <dialog className="account-dialog" ref={dialog} onClose={onClose}><button className="close" aria-label={t('Close')} onClick={onClose}>×</button><h2>{t('Profile')}</h2><p>{customer}</p><p>{t('Your cart is saved automatically.')}</p>{!demo&&<GoogleButton link/>}<h3>{t('Previous purchases')}</h3>{loading?<p role="status">{t('Loading…')}</p>:error?<p role="alert">{t('Purchase history is unavailable. Please retry.')} <button onClick={()=>setRetry(v=>v+1)}>{t('Retry')}</button></p>:orders.length?orders.map(order=><article className="account-order" key={order.id}><strong>#{order.display_id}</strong><p>{new Date(order.created_at).toLocaleDateString(locale==='es'?'es-CL':'en-US')} · {new Intl.NumberFormat(locale==='es'?'es-CL':'en-US',{style:'currency',currency:order.currency_code}).format(order.total)}</p>{order.items?.map(item=><p key={item.id}>{item.quantity} × {item.title}</p>)}</article>):<p>{t('No purchases yet.')}</p>}<div className="account-pagination">{offset>0&&<button disabled={loading} onClick={()=>setOffset(v=>v-10)}>←</button>}{offset+10<count&&<button disabled={loading} onClick={()=>setOffset(v=>v+10)}>→</button>}</div><button className="button" onClick={onLogout}>{t('Log out')}</button></dialog>;
+}

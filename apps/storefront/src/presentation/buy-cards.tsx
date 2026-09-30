@@ -1,0 +1,6 @@
+"use client";
+import {useLocale} from "./locale-provider";
+import Link from 'next/link';
+import {buyingRates} from '@/config/buying-rates';
+export function BuyCards(){
+ const {t}=useLocale();return <section className="catalogue buy-cards"><nav className="breadcrumbs" aria-label="Breadcrumb"><Link href="/">{t("Home")}</Link><span aria-hidden="true">›</span><span aria-current="page">{t("We buy your cards")}</span></nav><p className="eyebrow">{t("A new home for your collection")}</p><h1>{t("We buy your cards")}</h1><p>{t("Have cards you no longer use? We buy cards for our store. Prepare a list with each card’s name, set, language, finish, and condition so we can assess your collection.")}</p><h2>{t("Our buying rates")}</h2><p>{t("We calculate our offer in Chilean pesos by multiplying the card’s Card Kingdom price in US dollars by 450.")}</p><div className="buying-table-wrap"><table className="buying-table"><caption>{t("Card-buying terms")}</caption><thead><tr><th scope="col">{t("Pricing detail")}</th><th scope="col">{t("Current rate")}</th></tr></thead><tbody>{buyingRates.map(rate=><tr key={rate.label}><th scope="row">{rate.label}</th><td>{rate.value}</td></tr>)}</tbody></table></div></section>;}

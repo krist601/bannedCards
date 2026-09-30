@@ -23,7 +23,9 @@ export function useCommerce() {
     try {
       const ports = repositories.current ?? createCommerceRepositories();
       repositories.current = ports;
-      const [savedCart, session] = await Promise.all([ports.cart.load(), ports.customer.load()]);
+      const session = await ports.customer.load();
+      setCustomer(session);
+      const savedCart = session && ports.cart.syncCustomer ? await ports.cart.syncCustomer() : await ports.cart.load();
       setCart(savedCart); setCustomer(session); setReady(true);
     } catch (error) { report(error); }
     finally { locked.current = false; setLoading(false); }
@@ -54,7 +56,7 @@ export function useCommerce() {
       return { success, added };
     },
     quantity: (id: string, value: number) => run(async ports => { setCart(await ports.cart.setQuantity(id, value)); }),
-    login: (email: string, password: string) => run(async ports => { setCustomer(await ports.customer.login(email, password)); }),
+    login: (email: string, password: string) => run(async ports => { setCustomer(await ports.customer.login(email, password)); if(ports.cart.syncCustomer)setCart(await ports.cart.syncCustomer()); }),
     logout: () => run(async ports => {
       await ports.customer.clear();
       ports.cart.clearLocal(); setCustomer(""); setCart([]);

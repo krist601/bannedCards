@@ -9,6 +9,7 @@ export interface CartRepository {
   add(item: CatalogueItem, quantity?: number): Promise<Cart>;
   setQuantity(lineId: string, quantity: number): Promise<Cart>;
   clearLocal(): void;
+  syncCustomer?(): Promise<Cart>;
 }
 export interface CustomerSessionRepository {
   load(): Promise<string>;

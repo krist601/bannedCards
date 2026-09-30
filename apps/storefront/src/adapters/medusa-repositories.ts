@@ -18,8 +18,8 @@ type CatalogueCard = {
   colors: string; collection: "Latest" | "Middle-earth"; external_id: string | null;
 };
 type RemoteCart = {
-  id: string; region_id: string; currency_code: string; completed_at?: string | null;
-  items?: { id: string; variant_id: string; title: string; quantity: number; unit_price: number;
+  id: string; region_id: string; currency_code: string; customer_id?: string | null; completed_at?: string | null;
+  items?: { id: string; variant_id: string; title: string; quantity: number; unit_price: number; thumbnail?: string | null;
     product?: Product; variant?: Variant }[];
 };
 class MedusaError extends Error {
@@ -72,6 +72,7 @@ export function mapCatalogueCard(card: CatalogueCard): CatalogueItem {
 
 /** Medusa owns prices, inventory validation and cart mutations. Only the cart ID is persisted. */
 export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Storage, "getItem" | "setItem" | "removeItem">, fetcher: typeof fetch = fetch): CommerceRepositories {
+  let customerId: string | null = null;
   const key = `banned-cards-medusa-cart:${config.url}:${config.regionId}`;
   async function request<T>(path: string, method = "GET", body?: unknown, token?: string): Promise<T> {
     const response = await fetcher(`${config.url.replace(/\/$/, "")}${path}`, {
@@ -89,7 +90,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
   function mapCart(cart: RemoteCart): Cart {
     if (cart.currency_code.toLowerCase() !== "clp" || cart.region_id !== config.regionId) throw new Error("The store requires a Chilean CLP region.");
     return (cart.items ?? []).map(line => {
-      const item = mapItem({ id: "", ...line.product, title: line.product?.title || line.title }, line.variant ?? { id: line.variant_id }, line.unit_price);
+      const item = mapItem({ id: "", ...line.product, thumbnail:line.product?.thumbnail || line.thumbnail, title: line.product?.title || line.title }, line.variant ?? { id: line.variant_id }, line.unit_price);
       return {
         ...item,
         id: line.variant_id,
@@ -121,6 +122,12 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     queue = result.catch(() => undefined);
     return result;
   }
+  async function saveCustomerCart(cart: RemoteCart) {
+    if (!customerId) return;
+    if (cart.customer_id && cart.customer_id !== customerId) throw new Error("This cart belongs to another account.");
+    if (!cart.customer_id) await request(`/store/carts/${encodeURIComponent(cart.id)}/customer`, "POST", {});
+    await request("/store/customers/me", "POST", {metadata:{storefront_cart_id:cart.id}});
+  }
   return {
     catalogue: { list: async () => {
       const items: CatalogueItem[] = [];
@@ -135,6 +142,31 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
       return items;
     } },
     cart: {
+      syncCustomer: () => serial(async () => {
+        if (!customerId) { const cart=await current(); return cart?mapCart(cart):[]; }
+        const {customer}=await request<{customer:{metadata?:Record<string,unknown>}}>("/store/customers/me");
+        let local=await current();
+        if(local?.customer_id && local.customer_id!==customerId){storage.removeItem(key);local=null;}
+        const savedId=customer.metadata?.storefront_cart_id;
+        if(typeof savedId==="string" && savedId!==local?.id){
+          try {
+            const {cart:saved}=await request<{cart:RemoteCart}>(`/store/carts/${encodeURIComponent(savedId)}`);
+            if(saved.customer_id===customerId && !saved.completed_at && saved.region_id===config.regionId){
+              // Keep the larger quantity per variant: retrying a partial merge cannot double items.
+              for(const line of local?.items??[]){
+                const existing=saved.items?.find(item=>item.variant_id===line.variant_id);
+                if(existing && existing.quantity>=line.quantity)continue;
+                const path=existing?`/store/carts/${encodeURIComponent(saved.id)}/line-items/${encodeURIComponent(existing.id)}`:`/store/carts/${encodeURIComponent(saved.id)}/line-items`;
+                const result=await request<{cart:RemoteCart}>(path,"POST",existing?{quantity:line.quantity}:{variant_id:line.variant_id,quantity:line.quantity});
+                saved.items=result.cart.items;
+              }
+              local=saved;storage.setItem(key,saved.id);
+            }
+          }catch(error){if(!(error instanceof MedusaError && error.status===404))throw error;}
+        }
+        if(local)await saveCustomerCart(local);
+        return local?mapCart(local):[];
+      }),
       load: () => serial(async () => { const cart = await current(); return cart ? mapCart(cart) : []; }),
       add: (item, quantity = 1) => serial(async () => {
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw new Error("Quantity must be between 1 and 999.");
@@ -144,6 +176,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
           mapCart(cart);
           storage.setItem(key, cart.id);
         }
+        await saveCustomerCart(cart);
         const result = await request<{ cart: RemoteCart }>(`/store/carts/${encodeURIComponent(cart.id)}/line-items`, "POST", { variant_id: item.id, quantity });
         return mapCart(result.cart);
       }),
@@ -164,17 +197,19 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     customer: {
       load: async () => {
         try {
-          const { customer } = await request<{ customer: { first_name?: string; email: string } }>("/store/customers/me");
+          const { customer } = await request<{ customer: { id?:string; first_name?: string; email: string } }>("/store/customers/me");
+          customerId=customer.id??null;
           return customer.first_name || customer.email;
         } catch (error) { if (error instanceof MedusaError && error.status === 401) return ""; throw error; }
       },
       login: async (email, password) => {
         const { token } = await request<{ token: string }>("/auth/customer/emailpass", "POST", { email, password });
         await request("/auth/session", "POST", undefined, token);
-        const { customer } = await request<{ customer: { first_name?: string; email: string } }>("/store/customers/me");
-        return customer.first_name || customer.email;
+        const { customer } = await request<{ customer: { id?:string; first_name?: string; email: string } }>("/store/customers/me");
+        customerId=customer.id??null;
+          return customer.first_name || customer.email;
       },
-      clear: async () => { await request("/auth/session", "DELETE"); }
+      clear: async () => { await request("/auth/session", "DELETE"); customerId=null; }
     }
   };
 }

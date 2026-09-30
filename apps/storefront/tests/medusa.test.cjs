@@ -91,3 +91,26 @@ test('bulk add sends the requested quantity once and rejects invalid quantities 
  assert.equal(writes.length,1);assert.deepEqual(JSON.parse(writes[0].body),{variant_id:variant.id,quantity:4});assert.equal(result[0].quantity,4);
  const count=repo.calls.length;await assert.rejects(repo.cart.add({id:variant.id},0));await assert.rejects(repo.cart.add({id:variant.id},1.5));assert.equal(repo.calls.length,count);
 });
+test('cart line thumbnail is used when the product is not expanded', async () => {
+  const repo=setup(()=>({cart:{...cart,items:[{...cart.items[0],thumbnail:product.thumbnail}]}}));
+  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}`,cart.id);
+  assert.equal((await repo.cart.load())[0].imageUrl,product.thumbnail);
+});
+test('signed-in customer restores their saved cart and preserves guest variants', async () => {
+  let saved={...cart,id:'saved',customer_id:'cus_1',items:[{...cart.items[0],quantity:2}]};
+  const guest={...cart,items:[{...cart.items[0],variant_id:'variant_2',id:'guest_line'}]};
+  const repo=setup((url,init)=>{
+    if(url.pathname==='/store/customers/me')return {customer:{id:'cus_1',email:'test@example.test',metadata:{storefront_cart_id:'saved'}}};
+    if(url.pathname==='/store/carts/saved/line-items'){
+      const body=JSON.parse(init.body);saved={...saved,items:[...saved.items,{...cart.items[0],id:'line_2',...body}]};return {cart:saved};
+    }
+    return {cart:url.pathname.endsWith('/saved')?saved:guest};
+  });
+  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}`,cart.id);
+  await repo.customer.load();
+  const result=await repo.cart.syncCustomer();
+  assert.equal(result.length,2);assert.equal(result[0].quantity,2);
+  await repo.cart.syncCustomer();
+  assert.equal(repo.calls.filter(c=>c.url.endsWith('/saved/line-items')).length,1);
+  assert.deepEqual([...repo.values.values()],['saved']);
+});

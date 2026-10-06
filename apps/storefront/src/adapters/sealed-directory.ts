@@ -5,10 +5,11 @@ type Category={id:string;handle:string;name:string;parent_category_id?:string|nu
 type Base=Parameters<typeof mapItem>[0];
 type Product=Omit<Base,'variants'> & {created_at?:string;categories?:Category[];variants?:(NonNullable<Base['variants']>[number]&{options?:{value:string;option?:{title:string}}[];calculated_price?:{currency_code:string;calculated_amount:number|null;original_amount?:number|null}})[]};
 /** Server-side projection: sales-channel-scoped Medusa prices and inventory remain authoritative. */
-export async function loadSealedDirectory(signal:AbortSignal):Promise<CatalogueItem[]> {
+export async function loadSealedDirectory(signal?:AbortSignal):Promise<CatalogueItem[]> {
   if(process.env.NEXT_PUBLIC_COMMERCE_MODE==='demo')return [];
   async function request<T>(path:string):Promise<T>{
-    const response=await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_URL}${path}`,{headers:{'x-publishable-api-key':process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY??''},cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(30000)])});
+    const timeout=AbortSignal.timeout(30000);
+    const response=await fetch(`${process.env.NEXT_PUBLIC_MEDUSA_URL}${path}`,{headers:{'x-publishable-api-key':process.env.NEXT_PUBLIC_MEDUSA_PUBLISHABLE_KEY??''},cache:'no-store',signal:signal?AbortSignal.any([signal,timeout]):timeout});
     if(!response.ok)throw new Error('Unable to load sealed products. Please retry.');
     return response.json();
   }

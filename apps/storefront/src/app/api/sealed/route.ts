@@ -1,14 +1,22 @@
 import {loadStorefrontSettings} from "@/adapters/storefront-settings";
 import { NextRequest,NextResponse } from 'next/server';
+import {unstable_cache} from 'next/cache';
 import { loadSealedDirectory } from '@/adapters/sealed-directory';
 import { selectSealed } from '@/application/sealed-catalogue';
+
+const loadCachedSealedDirectory=unstable_cache(
+  ()=>loadSealedDirectory(),
+  ['sealed-directory'],
+  {revalidate:300}
+);
+
 export async function GET(request:NextRequest){
   const p=request.nextUrl.searchParams;
   const offset=Number(p.get('offset')??0);
   if(!Number.isInteger(offset)||offset<0)return NextResponse.json({message:'Invalid offset'},{status:400});
   try{
     if(!(await loadStorefrontSettings()).sealed)return NextResponse.json({message:"Sealed products are disabled"},{status:404});
-    const all=await loadSealedDirectory(request.signal);
+    const all=await loadCachedSealedDirectory();
     const query={q:p.get('q')||undefined,category:p.get('category')||undefined,set:p.get('set')||undefined,language:p.get('language')||undefined,collection:p.get('collection')||undefined};
     const selected=selectSealed(all,query);
     const scope=selectSealed(all,{...query,language:undefined});

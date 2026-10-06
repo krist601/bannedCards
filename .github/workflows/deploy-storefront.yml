@@ -65,4 +65,4 @@ jobs:
           LIGHTSAIL_USER: ${{ secrets.LIGHTSAIL_USER }}
         run: |
           ssh -i ~/.ssh/lightsail_deploy "$LIGHTSAIL_USER@$LIGHTSAIL_HOST" \
-            'set -e; mkdir -p /opt/banned-cards/storefront; tar -xzf /tmp/banned-cards-storefront.tar.gz -C /opt/banned-cards/storefront; rm -f /tmp/banned-cards-storefront.tar.gz; cd /opt/banned-cards; docker compose up -d --build storefront caddy; docker compose ps storefront caddy'
+            'set -e; if ! sudo swapon --show=NAME --noheadings | grep -qx /swapfile; then if [ ! -f /swapfile ]; then sudo fallocate -l 2G /swapfile; sudo chmod 600 /swapfile; sudo mkswap /swapfile; fi; sudo swapon /swapfile; grep -q "^/swapfile " /etc/fstab || echo "/swapfile none swap sw 0 0" | sudo tee -a /etc/fstab >/dev/null; fi; mkdir -p /opt/banned-cards/storefront; tar -xzf /tmp/banned-cards-storefront.tar.gz -C /opt/banned-cards/storefront; rm -f /tmp/banned-cards-storefront.tar.gz; cd /opt/banned-cards; docker compose up -d --build storefront caddy; docker compose ps storefront caddy'

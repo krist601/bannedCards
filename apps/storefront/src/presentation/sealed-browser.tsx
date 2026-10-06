@@ -7,6 +7,7 @@ import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import type {CatalogueItem,Cart} from '@/domain/commerce';
 import {sealedCategories,sealedCollections,type SealedView} from '@/config/sealed';
 import {CardImage} from './card-image';
+import {BannerProductImage} from './banner-product-image';
 type Props={query:string;cart:Cart;disabled:boolean;onAdd(item:CatalogueItem):void;home?:boolean;view?:SealedView;initialLanguage?:string};
 type Banner={categories:string[];image?:string;background?:string;color?:string;set:string};
 type Page={items:CatalogueItem[];count:number;nextOffset:number|null;languages:string[];sets:{slug:string;name:string;images?:{src:string;name:string}[];image?:string;background?:string;color?:string}[];banners:Banner[];rows:Record<string,CatalogueItem[]>};
@@ -29,7 +30,7 @@ function BrowseCarousel({title,slides}:{title:string;slides:Slide[]}){
   const active=slides[index%Math.max(slides.length,1)];
   if(!active)return null;
   return <section className="browse-carousel set-hero" aria-label={t(title)} aria-roledescription="carousel"><div className="set-carousel-controls"><div className="row-controls"><button aria-label={`Previous ${t(title)} banner`} onClick={()=>setIndex(value=>(value-1+slides.length)%slides.length)}>←</button><span>{index%slides.length+1} / {slides.length}</span><button aria-label={`Next ${t(title)} banner`} onClick={()=>setIndex(value=>(value+1)%slides.length)}>→</button></div></div><div className="browse-slide" style={{'--banner-color':'var(--primary)'} as CSSProperties}>
-    {active.background&&<img className="browse-background" src={active.background} alt=""/>}<div className="browse-shape"/><div className="browse-copy"><p className="eyebrow">{active.set||'Magic: The Gathering'}</p><h3>{active.title}</h3>{active.description&&<p>{active.description}</p>}<Link className="button" href={active.href}>{t("Explore")} {active.title} →</Link></div><div className={`browse-cutout ${active.images?.length?"browse-product-group":""}`}>{active.images?.length?active.images.map((image,index)=><img key={image.src} src={image.src} alt={image.name} style={{"--product-index":index} as CSSProperties}/>):active.image?<img src={active.image} alt={active.title}/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{active.title}</strong></div>}</div></div></section>;
+{active.background&&<img className="browse-background" src={active.background} alt=""/>}<div className="browse-shape"/><div className="browse-copy"><p className="eyebrow">{active.set||'Magic: The Gathering'}</p><h3>{active.title}</h3>{active.description&&<p>{active.description}</p>}<Link className="button" href={active.href}>{t("Explore")} {active.title} →</Link></div><div className={`browse-cutout ${active.images?.length?"browse-product-group":""}`}>{active.images?.length?active.images.map(image=><BannerProductImage key={image.src} src={image.src} name={image.name}/>):active.image?<BannerProductImage key={active.image} src={active.image} name={active.title}/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{active.title}</strong></div>}</div></div></section>;
 }
 function CategoryRow({banners}:{banners:Banner[]}) {
  const {t}=useLocale();

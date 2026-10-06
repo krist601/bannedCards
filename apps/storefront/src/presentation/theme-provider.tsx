@@ -3,6 +3,7 @@ import { createContext, useContext, useState } from "react";
 import {useLocale} from "./locale-provider";
 import { getTheme, themes } from "@/config/themes";
 const ThemeContext = createContext<{theme:string;change(id:string):void} | null>(null);
+export function useTheme() { return useContext(ThemeContext)!; }
 export function ThemeProvider({ initialTheme, children }: { initialTheme: string; children: React.ReactNode }) {
   const [theme, setTheme] = useState(initialTheme);
   function change(id: string) {

@@ -1,4 +1,5 @@
 "use client";
+import { MobileFilters } from "./mobile-filters";
 import {useLocale} from "./locale-provider";
 import { useEffect, useRef, useState } from "react";
 import type { CatalogueFilter, DirectorySet } from "@/domain/set-directory";
@@ -19,7 +20,7 @@ export function SetSidebar({ directory, selected, onSelect, cardScale, onCardSca
     viewport.current?.focus({ preventScroll: true });
     viewport.current?.scrollIntoView({ block: "nearest", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }, [directory.motion]);
-  return <aside className="filters" aria-label="Filter singles">
+  return <MobileFilters><aside className="filters" aria-label="Filter singles">
     <div className="card-size-control">
       <label htmlFor="card-size">{t("Card size")}<output htmlFor="card-size">{cardScale.toFixed(1)}×</output></label>
       <input id="card-size" type="range" min="1" max="2.5" step="0.1" value={cardScale} aria-valuetext={`${cardScale.toFixed(1)} times`} onChange={event => onCardScaleChange(event.target.valueAsNumber)} />
@@ -45,5 +46,5 @@ export function SetSidebar({ directory, selected, onSelect, cardScale, onCardSca
       {!directory.loading && !directory.error && !directory.sets.length && <p>{t("No sets found.")}</p>}
       {directory.nextOffset !== null && <button className="set-page-control" type="button" disabled={directory.loading} onClick={() => void directory.more()}>{t("Load more sets")}</button>}
     </div>
-  </aside>;
+  </aside></MobileFilters>;
 }

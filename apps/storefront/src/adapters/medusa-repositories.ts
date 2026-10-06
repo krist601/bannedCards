@@ -73,7 +73,8 @@ export function mapCatalogueCard(card: CatalogueCard): CatalogueItem {
 /** Medusa owns prices, inventory validation and cart mutations. Only the cart ID is persisted. */
 export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Storage, "getItem" | "setItem" | "removeItem">, fetcher: typeof fetch = fetch): CommerceRepositories {
   let customerId: string | null = null;
-  const key = `banned-cards-medusa-cart:${config.url}:${config.regionId}`;
+  const key = `banned-cards-medusa-cart:${config.url}:${config.regionId}:${config.publishableKey}`;
+  const customerCartKey = `storefront_cart_${config.publishableKey}`;
   async function request<T>(path: string, method = "GET", body?: unknown, token?: string): Promise<T> {
     const response = await fetcher(`${config.url.replace(/\/$/, "")}${path}`, {
       signal: AbortSignal.timeout(15000), method, credentials: "include", cache: "no-store",
@@ -111,7 +112,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
       mapCart(cart);
       return cart;
     } catch (error) {
-      if (error instanceof MedusaError && error.status === 404) { storage.removeItem(key); return null; }
+      if (error instanceof MedusaError && [403,404].includes(error.status)) { storage.removeItem(key); return null; }
       throw error;
     }
   }
@@ -126,7 +127,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     if (!customerId) return;
     if (cart.customer_id && cart.customer_id !== customerId) throw new Error("This cart belongs to another account.");
     if (!cart.customer_id) await request(`/store/carts/${encodeURIComponent(cart.id)}/customer`, "POST", {});
-    await request("/store/customers/me", "POST", {metadata:{storefront_cart_id:cart.id}});
+    await request("/store/customers/me", "POST", {metadata:{[customerCartKey]:cart.id}});
   }
   return {
     catalogue: { list: async () => {
@@ -147,7 +148,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         const {customer}=await request<{customer:{metadata?:Record<string,unknown>}}>("/store/customers/me");
         let local=await current();
         if(local?.customer_id && local.customer_id!==customerId){storage.removeItem(key);local=null;}
-        const savedId=customer.metadata?.storefront_cart_id;
+        const savedId=customer.metadata?.[customerCartKey] ?? customer.metadata?.storefront_cart_id;
         if(typeof savedId==="string" && savedId!==local?.id){
           try {
             const {cart:saved}=await request<{cart:RemoteCart}>(`/store/carts/${encodeURIComponent(savedId)}`);
@@ -162,7 +163,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
               }
               local=saved;storage.setItem(key,saved.id);
             }
-          }catch(error){if(!(error instanceof MedusaError && error.status===404))throw error;}
+          }catch(error){if(!(error instanceof MedusaError && [403,404].includes(error.status)))throw error;}
         }
         if(local)await saveCustomerCart(local);
         return local?mapCart(local):[];

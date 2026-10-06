@@ -5,6 +5,17 @@ const config = { url: 'http://medusa.test', publishableKey: 'pk_test', regionId:
 const variant = { id: 'variant_1', manage_inventory: true, inventory_quantity: 2, calculated_price: { currency_code: 'clp', calculated_amount: 15990 } };
 const product = { id: 'prod_1', title: 'The One Ring', thumbnail: 'https://images.example/card.jpg', metadata: { collection: 'Middle-earth', game: 'magic-the-gathering' }, variants: [variant] };
 const cart = { id: 'cart_1', region_id: 'reg_cl', currency_code: 'clp', items: [{ id: 'line_1', variant_id: variant.id, title: product.title, quantity: 1, unit_price: 12000 }] };
+test('two stores sharing a browser keep separate carts',async()=>{
+  const values=new Map();
+  const storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value),removeItem:key=>values.delete(key)};
+  const fetcher=async(url,init)=>new Response(JSON.stringify({cart:{...cart,id:init.headers['x-publishable-api-key']}}));
+  const first=createMedusaRepositories(config,storage,fetcher);
+  const second=createMedusaRepositories({...config,publishableKey:'pk_second'},storage,fetcher);
+  await first.cart.add({id:variant.id});
+  assert.deepEqual(await second.cart.load(),[]);
+  await second.cart.add({id:variant.id});
+  assert.deepEqual([...values.values()].sort(),['pk_second','pk_test']);
+});
 function setup(handler) {
   const values = new Map();
   const calls = [];
@@ -64,7 +75,7 @@ test('updates use line IDs; zero deletes and reloads; invalid quantity makes no 
 test('stale cart resets on 404 but network/server failures preserve its ID', async () => {
   let status = 404;
   const repo = setup(() => ({ status, body: {} }));
-  const key = `banned-cards-medusa-cart:${config.url}:${config.regionId}`;
+  const key = `banned-cards-medusa-cart:${config.url}:${config.regionId}:${config.publishableKey}`;
   repo.values.set(key, 'stale'); assert.deepEqual(await repo.cart.load(), []); assert.equal(repo.values.size, 0);
   repo.values.set(key, 'keep'); status = 500;
   await assert.rejects(repo.cart.load()); assert.equal(repo.values.get(key), 'keep');
@@ -93,7 +104,7 @@ test('bulk add sends the requested quantity once and rejects invalid quantities 
 });
 test('cart line thumbnail is used when the product is not expanded', async () => {
   const repo=setup(()=>({cart:{...cart,items:[{...cart.items[0],thumbnail:product.thumbnail}]}}));
-  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}`,cart.id);
+  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}:${config.publishableKey}`,cart.id);
   assert.equal((await repo.cart.load())[0].imageUrl,product.thumbnail);
 });
 test('signed-in customer restores their saved cart and preserves guest variants', async () => {
@@ -106,7 +117,7 @@ test('signed-in customer restores their saved cart and preserves guest variants'
     }
     return {cart:url.pathname.endsWith('/saved')?saved:guest};
   });
-  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}`,cart.id);
+  repo.values.set(`banned-cards-medusa-cart:${config.url}:${config.regionId}:${config.publishableKey}`,cart.id);
   await repo.customer.load();
   const result=await repo.cart.syncCustomer();
   assert.equal(result.length,2);assert.equal(result[0].quantity,2);

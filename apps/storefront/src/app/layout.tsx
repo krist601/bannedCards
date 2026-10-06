@@ -9,7 +9,10 @@ import { ThemeProvider } from "@/presentation/theme-provider";
 
 export const metadata: Metadata = {
   title: "Banned Cards — Magic cards",
-  description: "A curated marketplace for Magic: The Gathering cards."
+  description: "A curated marketplace for Magic: The Gathering cards.",
+  icons: { icon: [{ url: "/brand/favicon.png", type: "image/png" }], apple: "/brand/logo-symbol.png" },
+  openGraph: { images: [{ url: "/brand/logo-square.png", width: 1254, height: 1254, alt: "Banned Cards" }] },
+  twitter: { card: "summary", images: ["/brand/logo-square.png"] }
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

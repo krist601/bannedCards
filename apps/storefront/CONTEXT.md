@@ -49,6 +49,8 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 
 ## Themes
 
+- Supplied brand originals live in `public/brand/`. `presentation/brand-logo.tsx` uses the white horizontal logo for dark schemes, purple horizontal for light schemes, the color symbol on mobile, and the square full logo in the footer. Next Image serves resized versions; layout metadata registers the supplied favicon and square social image.
+
 - `src/config/themes.ts` is the sole palette registry: Dark is default using the requested purple/amber palette; Light is included. Add a unique id/name/scheme/colors entry to add another theme automatically to the picker. `defaultTheme` controls first visits.
 - Semantic CSS variables (`--background`, `--surface`, `--primary`, `--accent`, `--text`, `--muted`, `--border`, contrast colors and `--link`) style the UI. Legacy CSS names alias them. `ThemeProvider` updates `data-theme` and a one-year cookie. Layout reads that cookie server-side so reloads render the chosen theme without a flash. No changes to card art colors.
 
@@ -61,13 +63,15 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 
 ## Sidebar decisions to preserve
 
+- Mobile (≤800px) has a fixed bottom shop bar with the live cart subtotal/count and cart button on all shop pages. Singles filters render their trigger into that bar via `mobile-filter-slot`. The mobile header hides its cart button and centers the theme-specific horizontal logo, with the menu at the right. Desktop keeps the header cart.
+
 - Show out-of-stock cards checkbox defaults off. `showOutOfStock=false` excludes fully sold-out groups before server pagination; groups with any available variant keep all their condition/finish rows. Toggling resets pagination; demo follows the same rule.
 
 - The separate “Explore collections” homepage section was removed.
 - Always keep **Latest added**, **Latest releases**, **All singles** in that order above the set list. Latest added is selected by default on first load. The old `Collection` type still exists for compatibility; sidebar selection uses `CatalogueFilter`.
 - `GET /store/tcg/sets?limit=10&offset=0` returns `{ sets, offset, nextOffset, previousOffset, latestSetCodes }`. One entry per CMS set family, no block headings. Backend reuses `groupCmsSets`: hidden parents hide the entire family; hidden divisions are excluded. CMS visibility defaults missing values to enabled. Each entry includes `setCodes` for its visible divisions. Grouping, visibility and search happen before pagination; division searches return their main set.
 - Card size slider tops the sidebar: 1× default (original minimum) through 2.5×, step 0.1. Page state drives CSS grid sizing; cards reflow and stay within narrow viewports.
-- Desktop filters stick 88px below the viewport top within the catalogue layout, stopping at its bottom. Tall menus scroll internally; mobile filters remain in normal flow.
+- Desktop filters stick 88px below the viewport top within the catalogue layout, stopping at its bottom. At widths ≤800px, `presentation/mobile-filters.tsx` replaces the inline sidebar with a fixed Filters button and a native modal bottom sheet. Filters apply immediately; Done, close, backdrop and Escape animate dismissal. The sheet scrolls internally, locks background scrolling, traps focus, restores trigger focus and respects reduced motion.
 - Show at most 10 sets. Bottom **Load more sets** replaces the page; top **Load previous sets** goes back. Animate vertical page entry (opposite direction when going back), focus the list and scroll it into view; respect reduced motion. Search resets to page one. Window focus refreshes visibility after CMS changes. No inventory counts beside sets.
 - Sets sort newest first, with undated sets last. Upcoming releases are labeled. Selection matches any lowercase code in the entry’s `setCodes`, including visible related releases.
 - Icons appear left of set names, with a generic fallback. Backend `pnpm sets:sync` and a daily Medusa job sync Scryfall metadata/icons into owned S3-compatible storage (MinIO locally). New sets need no frontend deployment. Do not fetch Scryfall on browser page loads.
@@ -102,6 +106,7 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 - Set hero content is centered within a 1200px maximum area with a 48–88px column gap and generous vertical padding. Product images cap at 140px wide / 220px high to avoid growing excessively on wide displays; the background remains full-width.
 - Set hero cutouts show up to five products above 1100px, three at 601–1100px, and two at 600px or below. This only changes banner presentation; the full set catalogue remains available.
 - Initial sealed loading uses `presentation/catalogue-skeleton.tsx`: full-width hero placeholders and product cards; paginated loading uses card placeholders. Cart/session startup status is screen-reader-only, avoiding a text row above the hero. Skeleton colors follow themes and animation respects reduced motion.
+- Sealed hero cutouts use `banner-product-image.tsx`: individual skeletons remain until image load (including cached-image detection), then fade in. URL keys reset state on slide changes; failed images show the product name. Wrapper slots preserve responsive 5/3/2 product limits and avoid layout shifts.
 
 - Bottom service items now link to `/sell-cards`, open the existing bulk finder dialog directly (including sealed pages), and describe the family-run Chilean shop. `/sell-cards` shows the owner-provided rate: Card Kingdom USD price × 450 = CLP offer (US$10 → CLP $4,500). Edit `config/buying-rates.ts`; no automatic Card Kingdom lookup or invented condition/cash/credit adjustments.
 - Hero slides share a CSS grid row so the tallest slide determines carousel height at each viewport width. Inactive slides use visibility:hidden, aria-hidden and inert, retaining sizing without focusable hidden controls.
@@ -120,3 +125,7 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 - Home singles showcase now requests 20 groups in the API default descending-price order (stock filter on), labeled Featured singles / Cartas de mayor valor. It no longer uses added-date order; `/singles` still defaults to Latest added. CatalogueQuery.limit optionally controls page size (default 40).
 
 - CMS Storefront sections screen persists boolean visibility in native store metadata (public /store/storefront-settings, protected CMS resource/action storefront_settings). Layout reads no-store settings and SectionsProvider refreshes on window focus. Defaults enabled; disabling sealed hides navigation and all Home sealed content and redirects sealed routes to Home (sealed API returns 404). Other flags control Home banner/rows, sealed landing blocks and bottom services; buy-card page is 404 when hidden. Products/inventory are untouched.
+
+## Stores and warehouses
+- Each storefront deployment uses a publishable API key linked to its own Medusa sales channel. CMS Stores & warehouses controls stock-location links; prices remain shared. Configure the domain/CORS separately.
+- Browser and customer saved-cart identifiers are namespaced by publishable key. Legacy customer carts are restored only if the backend authorizes the current store; cross-store carts return 403.

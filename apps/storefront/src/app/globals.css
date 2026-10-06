@@ -68,11 +68,11 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:3px solid var(-
 
 /* Keep desktop filters within the catalogue and below the sticky header. */
 @media(min-width:801px){
-  .catalogue-layout>.filters{
+  .catalogue-layout>.desktop-filters{
     position:sticky;
-    top:88px;
+    top:calc(var(--storefront-header-height, 96px) + 12px);
     align-self:start;
-    max-height:calc(100dvh - 104px);
+    max-height:calc(100dvh - var(--storefront-header-height, 96px) - 24px);
     overflow-y:auto;
     overscroll-behavior-y:contain;
     scrollbar-width:thin;
@@ -314,7 +314,10 @@ button,.button,.cart,.cart b { border-radius:6px; }
 .brand-symbol{display:none;object-fit:contain}
 .brand-square{display:block;width:150px;height:150px;border-radius:12px}
 @media(max-width:600px){.site-header .brand-horizontal{display:none}.site-header .brand-symbol{display:block;width:52px;height:52px}}
-.desktop-filters{display:contents}
+.desktop-filters{display:block;min-width:0}
+.desktop-filters .filters{align-items:stretch}
+.desktop-filters .filters>*{flex-shrink:0}
+.desktop-filters .card-size-control{flex-basis:auto}
 .mobile-filter-trigger{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);z-index:5;background:var(--primary);color:var(--on-primary);border:1px solid var(--border);border-radius:24px;padding:14px 28px;box-shadow:0 4px 24px #0004;font-weight:700}
 .mobile-filter-sheet{position:fixed;inset:auto 0 0;margin:0;width:100%;max-width:none;max-height:88dvh;padding:0;border:1px solid var(--border);border-radius:22px 22px 0 0;background:var(--surface);color:var(--text);overflow:hidden}
 .mobile-filter-sheet[open]{animation:filter-slide-in 220ms ease-out}

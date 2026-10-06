@@ -12,6 +12,16 @@ export function MobileFilters({ children }: { children: ReactNode }) {
   const trigger = useRef<HTMLButtonElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
+    const header = document.querySelector<HTMLElement>('.site-header');
+    const container = header?.closest('main');
+    if (!header || !container) return;
+    const update = () => container.style.setProperty('--storefront-header-height', `${header.getBoundingClientRect().height}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(header);
+    return () => { observer.disconnect(); container.style.removeProperty('--storefront-header-height'); };
+  }, []);
+  useEffect(() => {
     const query = window.matchMedia('(max-width: 800px)');
     const update = () => {
       setMobile(query.matches);

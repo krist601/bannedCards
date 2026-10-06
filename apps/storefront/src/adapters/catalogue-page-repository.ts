@@ -3,7 +3,7 @@ import { demoCatalogueRepository } from "./demo-catalogue-repository";
 import { mapCatalogueCard } from "./medusa-repositories";
 import { groupCards } from "@/application/group-cards";
 import { filterCatalogue } from "@/application/filter-catalogue";
-export type CatalogueQuery = { q: string; limit?: number; showOutOfStock: boolean; sets?: string[]; ranked?: string[]; sort?: "added" };
+export type CatalogueQuery = { q: string; limit?: number; showOutOfStock: boolean; sets?: string[]; ranked?: string[]; sort?: "added" | "release" };
 export async function loadCataloguePage(query: CatalogueQuery, offset: number, signal: AbortSignal) {
   const limit = query.limit ?? 40;
   if (demoMode) {

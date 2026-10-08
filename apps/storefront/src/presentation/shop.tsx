@@ -37,7 +37,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
   const directory = useSetDirectory();
   const commerce = useCommerce();
   const { cart, customer } = commerce;
-  const catalogue = useCataloguePages({q:singles ? query : "",showOutOfStock, ...(!singles ? {limit:20} : {}), ...(singles && filter.kind === "set" ? {sets:filter.setCodes ?? [filter.code]} : singles && filter.kind === "latest" ? {sets:directory.latestSetCodes} : singles && filter.kind === "added" ? {sort:"added" as const} : {})}, !buyCards && sealedView === undefined && !(filter.kind === "latest" && (directory.loading || Boolean(directory.error))));
+  const catalogue = useCataloguePages({q:singles ? query : "",showOutOfStock, ...(!singles ? {limit:20} : {}), ...(singles && filter.kind === "set" ? {sets:filter.setCodes ?? [filter.code]} : singles && filter.kind === "latest" ? {sets:directory.latestSetCodes} : singles && filter.kind === "added" ? {sort:"release" as const} : {})}, !buyCards && sealedView === undefined && !(filter.kind === "latest" && (directory.loading || Boolean(directory.error))));
   const cards = catalogue.cards;
   const [cartOpen, setCartOpen] = useState(false);
   const [accountOpen,setAccountOpen]=useState(false);

@@ -8,3 +8,5 @@ test('visibility defaults preserve existing store and explicit disabled settings
  assert.equal(normalizeSections({sealed:'false'}).sealed,true);
  assert.equal('unknown' in normalizeSections({unknown:false}),false);
 });
+
+test('singles master switch defaults on and can be disabled',()=>{assert.equal(sectionDefaults.singles,true);assert.equal(normalizeSections({singles:false}).singles,false);});

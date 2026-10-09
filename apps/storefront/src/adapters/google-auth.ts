@@ -26,6 +26,11 @@ export function validateGoogleReturn(query:URLSearchParams,raw:string|null,now=D
  if(!query.get('code'))throw new Error('Google sign-in failed. Please try again.');
  return {...pending,returnTo:safeReturnPath(pending.returnTo),link:pending.link===true};
 }
+/** Progress of the return-from-Google sign-in, so the page can show what is happening. */
+export type GoogleStep='verify'|'session'|'prepare'|'done';
+const listeners=new Set<(step:GoogleStep)=>void>();let lastStep:GoogleStep='verify';
+const emit=(step:GoogleStep)=>{lastStep=step;listeners.forEach(listener=>listener(step));};
+export function onGoogleProgress(listener:(step:GoogleStep)=>void){listeners.add(listener);listener(lastStep);return()=>{listeners.delete(listener);};}
 let completion:Promise<string>|undefined;
 export function completeGoogleSignIn(){
  // Single exchange even when React Strict Mode invokes effects twice.
@@ -34,17 +39,21 @@ export function completeGoogleSignIn(){
   const query=new URLSearchParams(window.location.search);
   const raw=sessionStorage.getItem(key);sessionStorage.removeItem(key);
   window.history.replaceState(null,'',window.location.pathname);
+  emit('verify');
   const pending=validateGoogleReturn(query,raw);
   const callbackQuery=new URLSearchParams({code:query.get('code')!,state:query.get('state')!});
   const result=await request(`/auth/customer/google/callback?${callbackQuery}`,{});
   if(!result.token||result.mfa_required||result.verification_required)throw new Error('Google sign-in failed. Please try again.');
   await request('/store/auth/google/complete',{link:pending.link},result.token);
+  emit('session');
   // Omit the old session so refresh uses the Google identity, including new registrations.
   const refreshed=await request('/auth/token/refresh',{},result.token,'omit');
   if(!refreshed.token||refreshed.mfa_required||refreshed.verification_required)throw new Error('Google sign-in failed. Please try again.');
   await request('/auth/session',{},refreshed.token);
+  emit('prepare');
   const session=await request('/store/customers/me');
   if(!session.customer?.id)throw new Error('Google sign-in failed. Please try again.');
+  emit('done');
   return pending.returnTo;
  })();
  return completion;

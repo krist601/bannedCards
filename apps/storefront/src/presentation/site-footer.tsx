@@ -20,7 +20,7 @@ const text = {
     follow: "Síguenos", payments: "Medios de pago", delivery: "Despacho",
     rights: "Todos los derechos reservados.", online: "Venta online · Despacho a todo Chile",
     legal: `Magic: The Gathering es una marca de Wizards of the Coast LLC. ${siteName} no está afiliada ni patrocinada por Wizards of the Coast.`,
-    testMode: "Modo de prueba: los pedidos no se cobran", demo: "Tienda de demostración", staff: "Administración",
+    testMode: "Modo de prueba: los pedidos no se cobran", demo: "Tienda de demostración", staff: "Administración", prices: "Precios de referencia de las cartas basados en datos de Card Kingdom y Scryfall.",
   },
   en: {
     strip: [
@@ -36,14 +36,14 @@ const text = {
     follow: "Follow us", payments: "Payment methods", delivery: "Delivery",
     rights: "All rights reserved.", online: "Online store · Delivery across Chile",
     legal: `Magic: The Gathering is a trademark of Wizards of the Coast LLC. ${siteName} is not affiliated with or endorsed by Wizards of the Coast.`,
-    testMode: "Test mode: orders are not charged", demo: "Demo store", staff: "Staff",
+    testMode: "Test mode: orders are not charged", demo: "Demo store", staff: "Staff", prices: "Reference card prices based on Card Kingdom and Scryfall data.",
   },
 } as const;
 
 const InstagramIcon = () => <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5" /><circle cx="12" cy="12" r="4" /><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" /></svg>;
 const MailIcon = () => <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3" /><path d="M4 7l8 6 8-6" /></svg>;
 
-export function SiteFooter({ testCheckout, demo }: { testCheckout: boolean; demo: boolean }) {
+export function SiteFooter({ testCheckout, demo, cardKingdomPrices = false }: { testCheckout: boolean; demo: boolean; cardKingdomPrices?: boolean }) {
   const { locale } = useLocale();
   const sections = useSections();
   const l = text[locale === "en" ? "en" : "es"];
@@ -98,7 +98,7 @@ export function SiteFooter({ testCheckout, demo }: { testCheckout: boolean; demo
       <Link className="footer-brand" href="/" aria-label={`${siteName} home`}><BrandLogo square /></Link>
       <div>
         <p>© {new Date().getFullYear()} {siteName}. {l.rights} · {l.online}</p>
-        <p className="footer-legal">{l.legal}</p>
+        <p className="footer-legal">{l.legal}{cardKingdomPrices ? ` ${l.prices}` : ""}</p>
         {(testCheckout || demo) && <p className="footer-mode">{demo ? l.demo : l.testMode}</p>}
       </div>
       <a className="footer-staff" href="/cms">{l.staff} ↗</a>

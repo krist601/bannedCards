@@ -755,3 +755,21 @@ footer.site-footer{display:block;padding:0;margin-top:56px;background:var(--surf
 .co-secure{margin-top:10px;font-size:.84rem}.co-webpay-note{color:var(--text);background:color-mix(in srgb,var(--primary) 12%,transparent);border-color:color-mix(in srgb,var(--primary) 40%,transparent)}
 .co-test-payment{padding:10px 14px;border-radius:10px;font-size:.85rem;color:#f3c77b;background:color-mix(in srgb,var(--accent) 12%,transparent);border:1px solid color-mix(in srgb,var(--accent) 38%,transparent)}
 .co-done-card .co-note+.co-done-actions,.co-done-card>.co-note:last-of-type+.co-done-actions{margin-top:24px}
+
+/* ---- Google sign-in return screen ---- */
+.gc{min-height:100dvh;display:grid;place-items:center;padding:24px 16px;background:radial-gradient(120% 90% at 85% -10%,color-mix(in srgb,var(--primary) 45%,transparent),transparent 60%),radial-gradient(90% 70% at 0% 110%,color-mix(in srgb,var(--accent) 16%,transparent),transparent 55%),var(--background)}
+.gc-card{width:min(100%,460px);padding:34px clamp(22px,5vw,38px) 30px;text-align:center;background:var(--surface);border:1px solid var(--border);border-radius:24px;box-shadow:0 30px 70px -40px color-mix(in srgb,var(--primary) 70%,transparent)}
+.gc-logo{display:flex;justify-content:center;margin-bottom:22px}.gc-logo .brand-symbol{display:none}.gc-logo img{max-width:180px;height:auto}
+.gc-card h1{margin:0 0 8px;font-family:Georgia,serif;font-weight:400;font-size:clamp(1.55rem,4vw,1.9rem);line-height:1.2}
+.gc-note{margin:0 0 20px;color:var(--muted);line-height:1.55}
+.gc-spinner{width:54px;height:54px;margin:0 auto 18px;border-radius:50%;border:4px solid color-mix(in srgb,var(--primary) 22%,transparent);border-top-color:var(--primary);animation:co-spin .9s linear infinite}
+.gc-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:50%;display:grid;place-items:center;font-size:1.9rem;font-weight:800;color:#fff}.gc-icon-ok{background:#2e9e6b;box-shadow:0 12px 28px -12px #2e9e6b;animation:gc-pop .35s ease-out}.gc-icon-bad{background:#d64545;box-shadow:0 12px 28px -12px #d64545}
+@keyframes gc-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+.gc-steps{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:10px;text-align:left}
+.gc-steps li{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--border);border-radius:12px;color:var(--muted);font-size:.92rem;background:var(--background)}
+.gc-steps li span{flex:0 0 auto;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:.78rem;font-weight:800;border:1px solid var(--border);color:var(--muted)}
+.gc-steps li.is-current{color:var(--text);border-color:var(--primary);background:color-mix(in srgb,var(--primary) 10%,var(--surface))}.gc-steps li.is-current span{background:var(--primary);border-color:var(--primary);color:#fff}
+.gc-steps li.is-done{color:var(--text)}.gc-steps li.is-done span{background:#2e9e6b;border-color:#2e9e6b;color:#fff}
+.gc-actions{display:flex;justify-content:center;margin-top:4px}.gc-actions .checkout,.gc-actions a{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:0 26px;text-decoration:none;box-sizing:border-box}
+.gc-help{margin:18px 0 0;font-size:.82rem;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.gc-spinner{animation-duration:3s}.gc-icon-ok{animation:none}}

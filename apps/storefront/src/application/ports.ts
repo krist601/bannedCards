@@ -1,4 +1,4 @@
-import type { Cart, CatalogueItem } from "@/domain/commerce";
+import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder } from "@/domain/commerce";
 
 /** Async outbound ports; no framework or vendor types cross this boundary. */
 export interface CatalogueRepository {
@@ -10,6 +10,8 @@ export interface CartRepository {
   setQuantity(lineId: string, quantity: number): Promise<Cart>;
   clearLocal(): void;
   syncCustomer?(): Promise<Cart>;
+  /** Places an order from the saved cart (test checkout: no payment). Throws CheckoutFailed with the products that ran out. */
+  checkout?(contact: CheckoutContact, locale: "es" | "en"): Promise<PlacedOrder>;
 }
 export interface CustomerSessionRepository {
   load(): Promise<string>;

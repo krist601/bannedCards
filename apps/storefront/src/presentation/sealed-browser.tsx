@@ -52,8 +52,8 @@ function SealedContent(props:Props&{language:string;onLanguage(value:string):voi
   const [page,setPage]=useState<Page|null>(null),[offset,setOffset]=useState(0),[attempt,setAttempt]=useState(0),[loading,setLoading]=useState(true),[error,setError]=useState('');
   const key=JSON.stringify({q:query,...view,language});
   useEffect(()=>{const controller=new AbortController();setLoading(true);setError('');const timer=setTimeout(()=>{
-    fetch(`/api/sealed?${new URLSearchParams({...JSON.parse(key),offset:String(offset)})}`,{signal:controller.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('Unable to load sealed products. Please retry.');return response.json() as Promise<Page>;}).then(next=>{if(!controller.signal.aborted){setPage(previous=>offset===0?next:{...next,items:[...(previous?.items??[]),...next.items],rows:previous?.rows??{}});setLoading(false);}}).catch(error=>{if(!controller.signal.aborted){setError(error.message);setLoading(false);}});
-  },query?250:0);return()=>{clearTimeout(timer);controller.abort();};},[key,offset,attempt,query]);
+    fetch(`/api/sealed?${new URLSearchParams({...JSON.parse(key),...(home?{home:'1'}:{}),offset:String(offset)})}`,{signal:controller.signal,cache:'no-store'}).then(async response=>{if(!response.ok)throw new Error('Unable to load sealed products. Please retry.');return response.json() as Promise<Page>;}).then(next=>{if(!controller.signal.aborted){setPage(previous=>offset===0?next:{...next,items:[...(previous?.items??[]),...next.items],rows:previous?.rows??{}});setLoading(false);}}).catch(error=>{if(!controller.signal.aborted){setError(error.message);setLoading(false);}});
+  },query?250:0);return()=>{clearTimeout(timer);controller.abort();};},[key,offset,attempt,query,home]);
   const category=sealedCategories.find(c=>c.slug===view.category);
   const set=page?.sets.find(s=>s.slug===view.set);
   const title=category?.name||set?.name||(view.set?view.set.replace(/-/g,' '):undefined)||(view.collection?sealedCollections[view.collection as keyof typeof sealedCollections]:undefined)||'Sealed products';

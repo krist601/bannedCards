@@ -4,6 +4,8 @@ import { sealedSlug } from '../application/sealed-catalogue';
 type Category={id:string;handle:string;name:string;parent_category_id?:string|null};
 type Base=Parameters<typeof mapItem>[0];
 type Product=Omit<Base,'variants'> & {created_at?:string;categories?:Category[];variants?:(NonNullable<Base['variants']>[number]&{options?:{value:string;option?:{title:string}}[];calculated_price?:{currency_code:string;calculated_amount:number|null;original_amount?:number|null}})[]};
+/** Set release dates change rarely: keep them between directory rebuilds. */
+const releaseDateCache=new Map<string,{date:string|null;expires:number}>();
 /** Server-side projection: sales-channel-scoped Medusa prices and inventory remain authoritative. */
 export async function loadSealedDirectory(signal?:AbortSignal):Promise<CatalogueItem[]> {
   if(process.env.NEXT_PUBLIC_COMMERCE_MODE==='demo')return [];
@@ -33,11 +35,13 @@ export async function loadSealedDirectory(signal?:AbortSignal):Promise<Catalogue
   const releaseDates=new Map<string,string>();
   const codes=[...new Set(products.map(p=>String(p.metadata?.set_code??'').trim().toLowerCase()).filter(Boolean))];
   await Promise.all(codes.map(async code=>{
+    const cached=releaseDateCache.get(code);
+    if(cached&&cached.expires>Date.now()){if(cached.date)releaseDates.set(code,cached.date);return;}
     for(let offset=0;;){
       const page=await request<{sets:{code:string;setCodes:string[];releasedAt:string|null}[];nextOffset:number|null}>(`/store/tcg/sets?limit=10&offset=${offset}&q=${encodeURIComponent(code)}`);
       const set=page.sets.find(s=>s.code.toLowerCase()===code||s.setCodes.some(c=>c.toLowerCase()===code));
-      if(set?.releasedAt){releaseDates.set(code,set.releasedAt);break;}
-      if(page.nextOffset===null||page.nextOffset<=offset)break;
+      if(set?.releasedAt){releaseDates.set(code,set.releasedAt);releaseDateCache.set(code,{date:set.releasedAt,expires:Date.now()+6*3600_000});break;}
+      if(page.nextOffset===null||page.nextOffset<=offset){releaseDateCache.set(code,{date:null,expires:Date.now()+10*60_000});break;}
       offset=page.nextOffset;
     }
   }));

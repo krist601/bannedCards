@@ -1,19 +1,14 @@
 "use client";
 import {useLocale} from "./locale-provider";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { parseBulkList, planBulk, type BulkAllocation, type BulkMatch } from "@/application/bulk-cards";
 import { findBulkCards } from "@/adapters/bulk-card-repository";
-import type { Cart } from "@/domain/commerce";
+import type { Cart, CatalogueItem } from "@/domain/commerce";
+import { HeroBanner } from "./hero-banner";
 const money=(amount:number)=>new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(amount);
-type Props={sealedEnabled?:boolean;singlesEnabled?:boolean;bulkEnabled?:boolean;openRequest?:number;hideBanner?:boolean;home?:boolean;cart:Cart;disabled:boolean;onAdd(entries:BulkAllocation[]):Promise<{success:boolean;added:BulkAllocation[]}>;onOpenCart():void};
-export function HeroCarousel({cart,disabled,onAdd,onOpenCart,sealedEnabled=true,singlesEnabled=true,bulkEnabled=true,home=false,openRequest=0,hideBanner=false}:Props){
+type Props={featuredCards?:CatalogueItem[];cardCount?:number|null;onFilter?:(kind:"added"|"latest"|"all")=>void;sealedEnabled?:boolean;singlesEnabled?:boolean;customEnabled?:boolean;accessoriesEnabled?:boolean;bulkEnabled?:boolean;openRequest?:number;hideBanner?:boolean;home?:boolean;cart:Cart;disabled:boolean;onAdd(entries:BulkAllocation[]):Promise<{success:boolean;added:BulkAllocation[]}>;onOpenCart():void};
+export function HeroCarousel({featuredCards=[],cardCount=null,onFilter,cart,disabled,onAdd,onOpenCart,sealedEnabled=true,singlesEnabled=true,customEnabled=false,accessoriesEnabled=false,bulkEnabled=true,home=false,openRequest=0,hideBanner=false}:Props){
  const {t}=useLocale();
-  const [slide,setSlide]=useState(0);
-  const slides=home?[...(sealedEnabled?[0]:[]),...(singlesEnabled?[1]:[])]:(bulkEnabled?[0,1]:[0]);
-  const visibleSlide=slides.includes(slide)?slide:slides[0];
-  const noBanner=hideBanner||slides.length===0;
-  const advance=(direction:number)=>setSlide(slides[(slides.indexOf(visibleSlide)+direction+slides.length)%slides.length]);
   const [open,setOpen]=useState(false);
   useEffect(()=>{if(openRequest>0)setOpen(true);},[openRequest]);
   const dialog=useRef<HTMLDialogElement>(null);
@@ -61,22 +56,7 @@ export function HeroCarousel({cart,disabled,onAdd,onOpenCart,sealedEnabled=true,
     }catch{setMatches(null);setError('Could not confirm the cart update. Check your cart before trying again.');}
     finally{lock.current=false;setAdding(false);}
   }
-  return <>{!noBanner&&<section id="top" className="hero hero-carousel" aria-roledescription="carousel" aria-label="Store highlights">
-    {slides.length>1&&<div className="hero-controls" aria-label="Banner navigation">
-      <button type="button" aria-label="Previous banner" onClick={()=>advance(-1)}>←</button>
-      <button type="button" aria-pressed={visibleSlide===0} onClick={()=>setSlide(0)}>{home?t("Sealed products"):t("Discover")}</button>
-      <button type="button" aria-pressed={visibleSlide===1} onClick={()=>setSlide(1)}>{home?t("Singles"):t("Bulk finder")}</button>
-      <button type="button" aria-label="Next banner" onClick={()=>advance(1)}>→</button>
-    </div>}
-    {home && sealedEnabled && <div className="hero-slide" aria-hidden={visibleSlide!==0} inert={visibleSlide!==0} role="group" aria-roledescription="slide" aria-label={t("Sealed products")}><p className="eyebrow">{t("Open something new")}</p><h1>{t("Your next opening")}<br/>{t("starts here.")}</h1><p className="hero-copy">{t("Explore booster packs, boxes, bundles, precons and special releases.")}</p><Link className="button" href="/sealed">{t("Browse sealed products")}</Link></div>}
-    {(!home||singlesEnabled)&&<div className="hero-slide" aria-hidden={visibleSlide!==(home?1:0)} inert={visibleSlide!==(home?1:0)} role="group" aria-roledescription="slide" aria-label={home?"2 of 2: Singles":"1 of 2: Discover"}>
-      <p className="eyebrow">Magic: The Gathering · Chile</p><h1>{t("Find the next card")}<br/>{t("for your deck.")}</h1><p className="hero-copy">{t("Singles from the newest Magic releases and the journey through Middle-earth. Every listing is the exact card you will receive.")}</p><Link className="button" href="/singles">{t("Browse singles")}</Link>
-    </div>}
-    {!home && bulkEnabled && <div className="hero-slide" aria-hidden={visibleSlide!==1} inert={visibleSlide!==1} role="group" aria-roledescription="slide" aria-label="2 of 2: Bulk finder">
-      <div className="bulk-intro"><p className="eyebrow">{t("Build your deck faster")}</p><h2>{t("Find your list.")}</h2><p className="hero-copy">{t("Paste your cards, check available copies, then add the matches to your cart.")}</p></div>
-      <button className="button" type="button" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{t("Open bulk finder")}</button>
-    </div>}
-  </section>}
+  return <>{!hideBanner&&<HeroBanner home={home} enabled={{singles:singlesEnabled,sealed:sealedEnabled,custom:customEnabled,accessories:accessoriesEnabled,bulk:bulkEnabled}} featuredCards={featuredCards} cardCount={cardCount} onOpenBulk={()=>setOpen(true)} onFilter={onFilter} />}
   <dialog ref={dialog} className="bulk-dialog" aria-labelledby="bulk-dialog-title" onClose={()=>setOpen(false)}>
     <div className="bulk-dialog-heading"><div><p className="eyebrow">{t("Build your deck faster")}</p><h2 id="bulk-dialog-title">{t("Bulk card finder")}</h2></div><button className="close" type="button" aria-label="Close bulk finder" onClick={()=>setOpen(false)}>×</button></div>
       <form className="bulk-form" onSubmit={event=>void find(event)}>

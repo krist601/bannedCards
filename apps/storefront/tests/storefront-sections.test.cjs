@@ -10,3 +10,4 @@ test('visibility defaults preserve existing store and explicit disabled settings
 });
 
 test('singles master switch defaults on and can be disabled',()=>{assert.equal(sectionDefaults.singles,true);assert.equal(normalizeSections({singles:false}).singles,false);});
+test('custom products and accessories switches default on',()=>{for(const key of ['custom','accessories','homeCustom','homeAccessories'])assert.equal(sectionDefaults[key],true);assert.equal(normalizeSections({custom:false}).custom,false);});

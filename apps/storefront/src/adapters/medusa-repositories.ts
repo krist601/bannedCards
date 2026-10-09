@@ -19,14 +19,18 @@ type CatalogueCard = {
 };
 type RemoteCart = {
   id: string; region_id: string; currency_code: string; customer_id?: string | null; completed_at?: string | null;
-  items?: { id: string; variant_id: string; title: string; quantity: number; unit_price: number; thumbnail?: string | null;
+  items?: { id: string; variant_id: string; title: string; variant_title?: string | null; quantity: number; unit_price: number; thumbnail?: string | null;
     product?: Product; variant?: Variant }[];
 };
+export type StockProblem = { variant_id: string; title: string; requested: number; available: number };
+export class CheckoutFailed extends Error {
+  constructor(public code: string, message: string, public problems: StockProblem[] = []) { super(message); }
+}
 class MedusaError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 const games: Game[] = ["magic-the-gathering", "pokemon", "one-piece", "other"];
-const kinds: ProductKind[] = ["single", "sealed", "accessory"];
+const kinds: ProductKind[] = ["single", "sealed", "accessory", "custom"];
 export function mapItem(product: Product, variant: Variant, amount: number): CatalogueItem {
   const meta = { ...product.metadata, ...variant.metadata };
   const str = (key: string, fallback = "") => typeof meta[key] === "string" ? meta[key] as string : fallback;
@@ -84,7 +88,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     });
     if (!response.ok) {
       throw new MedusaError(response.status, response.status === 401 ? "Please sign in again." :
-        response.status === 400 || response.status === 409 ? "Medusa could not accept this change. Check stock and try again." : "The store is unavailable. Please try again.");
+        response.status === 400 || response.status === 409 ? "There is not enough stock to make this change. Check the available quantity and try again." : "The store is unavailable. Please try again.");
     }
     return response.status === 204 ? undefined as T : await response.json() as T;
   }
@@ -92,8 +96,13 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     if (cart.currency_code.toLowerCase() !== "clp" || cart.region_id !== config.regionId) throw new Error("The store requires a Chilean CLP region.");
     return (cart.items ?? []).map(line => {
       const item = mapItem({ id: "", ...line.product, thumbnail:line.product?.thumbnail || line.thumbnail, title: line.product?.title || line.title }, line.variant ?? { id: line.variant_id }, line.unit_price);
+      // Singles carry "near_mint / English / non_foil" in the variant title; show it instead of generic defaults.
+      const parts = (line.variant_title ?? "").split(" / ");
+      const pretty = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, letter => letter.toUpperCase()).replace("Non Foil", "Non-foil");
+      const card = parts.length === 3 && /^[a-z_]+$/.test(parts[0]) && /^[a-z_]+$/.test(parts[2]);
       return {
         ...item,
+        ...(card ? { finish: pretty(parts[2]), condition: pretty(parts[0]), attributes: { ...item.attributes, language: parts[1] } } : {}),
         id: line.variant_id,
         lineId: line.id,
         price: line.unit_price,
@@ -102,6 +111,14 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         stock: null
       };
     });
+  }
+  /** Cart responses carry no stock; ask the store how many of each line are left so sold-out lines can be flagged instead of failing at checkout. */
+  async function withAvailability(cart: Cart): Promise<Cart> {
+    if (!cart.length) return cart;
+    try {
+      const { availability } = await request<{ availability: Record<string, number | null> }>(`/store/cart-availability?variant_ids=${cart.map(line => encodeURIComponent(line.id)).join(",")}`);
+      return cart.map(line => ({ ...line, stock: typeof availability[line.id] === "number" ? availability[line.id] : line.stock }));
+    } catch { return cart; }
   }
   async function current(): Promise<RemoteCart | null> {
     const id = storage.getItem(key);
@@ -144,7 +161,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
     } },
     cart: {
       syncCustomer: () => serial(async () => {
-        if (!customerId) { const cart=await current(); return cart?mapCart(cart):[]; }
+        if (!customerId) { const cart=await current(); return cart?withAvailability(mapCart(cart)):[]; }
         const {customer}=await request<{customer:{metadata?:Record<string,unknown>}}>("/store/customers/me");
         let local=await current();
         if(local?.customer_id && local.customer_id!==customerId){storage.removeItem(key);local=null;}
@@ -166,9 +183,9 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
           }catch(error){if(!(error instanceof MedusaError && [403,404].includes(error.status)))throw error;}
         }
         if(local)await saveCustomerCart(local);
-        return local?mapCart(local):[];
+        return local?withAvailability(mapCart(local)):[];
       }),
-      load: () => serial(async () => { const cart = await current(); return cart ? mapCart(cart) : []; }),
+      load: () => serial(async () => { const cart = await current(); return cart ? withAvailability(mapCart(cart)) : []; }),
       add: (item, quantity = 1) => serial(async () => {
         if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) throw new Error("Quantity must be between 1 and 999.");
         let cart = await current();
@@ -179,7 +196,7 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         }
         await saveCustomerCart(cart);
         const result = await request<{ cart: RemoteCart }>(`/store/carts/${encodeURIComponent(cart.id)}/line-items`, "POST", { variant_id: item.id, quantity });
-        return mapCart(result.cart);
+        return withAvailability(mapCart(result.cart));
       }),
       setQuantity: (lineId, quantity) => serial(async () => {
         if (!Number.isInteger(quantity) || quantity < 0) throw new Error("Quantity must be a non-negative whole number.");
@@ -189,9 +206,24 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         if (quantity === 0) {
           await request(path, "DELETE");
           const refreshed = await current();
-          return refreshed ? mapCart(refreshed) : [];
+          return refreshed ? withAvailability(mapCart(refreshed)) : [];
         }
-        return mapCart((await request<{ cart: RemoteCart }>(path, "POST", { quantity })).cart);
+        return withAvailability(mapCart((await request<{ cart: RemoteCart }>(path, "POST", { quantity })).cart));
+      }),
+      checkout: (contact, locale) => serial(async () => {
+        const cart = await current();
+        if (!cart) throw new CheckoutFailed("cart_empty", "Your cart is empty.");
+        const response = await fetcher(`${config.url.replace(/\/$/, "")}/store/test-checkout`, {
+          signal: AbortSignal.timeout(30000), method: "POST", credentials: "include", cache: "no-store",
+          headers: { "Content-Type": "application/json", "x-publishable-api-key": config.publishableKey },
+          body: JSON.stringify({ cart_id: cart.id, contact, locale })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new CheckoutFailed(String(body.code ?? "checkout_failed"), String(body.message ?? "The order could not be placed."), Array.isArray(body.problems) ? body.problems : []);
+        storage.removeItem(key);
+        const order = body.order;
+        return { id: order.id, displayId: order.display_id, total: order.total, currency: order.currency_code, paymentStatus: order.payment_status === "paid" ? "paid" : "not_paid", emailSent: body.email_sent === true,
+          items: ((order.items ?? []) as { title: string; quantity: number; unit_price: number }[]).map(item => ({ title: item.title, quantity: item.quantity, unitPrice: item.unit_price })) };
       }),
       clearLocal: () => storage.removeItem(key)
     },
@@ -204,7 +236,9 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         } catch (error) { if (error instanceof MedusaError && error.status === 401) return ""; throw error; }
       },
       login: async (email, password) => {
-        const { token } = await request<{ token: string }>("/auth/customer/emailpass", "POST", { email, password });
+        let token: string;
+        try { ({ token } = await request<{ token: string }>("/auth/customer/emailpass", "POST", { email, password })); }
+        catch (error) { throw error instanceof MedusaError && error.status === 401 ? new Error("Email or password is incorrect.") : error; }
         await request("/auth/session", "POST", undefined, token);
         const { customer } = await request<{ customer: { id?:string; first_name?: string; email: string } }>("/store/customers/me");
         customerId=customer.id??null;

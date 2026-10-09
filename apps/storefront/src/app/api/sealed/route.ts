@@ -18,6 +18,7 @@ export async function GET(request:NextRequest){
     if(!(await loadStorefrontSettings()).sealed)return NextResponse.json({message:"Sealed products are disabled"},{status:404});
     const all=await loadCachedSealedDirectory();
     const query={q:p.get('q')||undefined,category:p.get('category')||undefined,set:p.get('set')||undefined,language:p.get('language')||undefined,collection:p.get('collection')||undefined};
+    if(p.get('home')==='1')return NextResponse.json({items:[],count:0,nextOffset:null,languages:[],sets:[],banners:[],rows:{'latest-releases':selectSealed(all,{...query,collection:'latest-releases'}).slice(0,10)}});
     const selected=selectSealed(all,query);
     const scope=selectSealed(all,{...query,language:undefined});
     const sets=[...new Map(all.filter(i=>i.attributes?.setSlug).map(i=>[i.attributes!.setSlug,{slug:i.attributes!.setSlug,name:i.set,image:i.attributes!.productCutout,background:i.attributes!.bannerImage,color:i.attributes!.bannerColor,releasedAt:i.attributes!.releasedAt}])).values()].sort((a,b)=>b.releasedAt.localeCompare(a.releasedAt));

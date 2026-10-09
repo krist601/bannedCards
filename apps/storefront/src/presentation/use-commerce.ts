@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createCommerceRepositories, demoMode } from "@/adapters/commerce-repositories";
 import type { CommerceRepositories } from "@/application/ports";
 import type { BulkAllocation } from "@/application/bulk-cards";
-import type { Cart, CatalogueItem } from "@/domain/commerce";
+import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder } from "@/domain/commerce";
 
 /** Driving adapter: coordinates async ports and view state, never vendor API calls. */
 export function useCommerce() {
@@ -40,6 +40,7 @@ export function useCommerce() {
   }
   return {
     cart, customer, loading, busy, error, demoMode, disabled: loading || busy || !ready,
+    setCustomerName: setCustomer,
     retry: initialize,
     add: (item: CatalogueItem) => run(async ports => { setCart(await ports.cart.add(item)); }),
     addBulk: async (entries: BulkAllocation[]) => {
@@ -54,6 +55,21 @@ export function useCommerce() {
         }
       });
       return { success, added };
+    },
+    /** Reloads the cart from the store so stock flags are current. */
+    refresh: async (): Promise<Cart | null> => {
+      let latest: Cart | null = null;
+      const ok = await run(async ports => { latest = await ports.cart.load(); setCart(latest); });
+      return ok ? latest : null;
+    },
+    /** Places the order. Errors are thrown to the caller (the checkout dialog) instead of the global banner. */
+    checkout: async (contact: CheckoutContact, locale: "es" | "en"): Promise<PlacedOrder> => {
+      const ports = repositories.current;
+      if (locked.current || !ready || !ports?.cart.checkout) throw new Error("The store is busy. Please try again in a moment.");
+      locked.current = true; setBusy(true);
+      try { const order = await ports.cart.checkout(contact, locale); setCart([]); return order; }
+      catch (error) { try { setCart(await ports.cart.load()); } catch { /* keep the old view */ } throw error; }
+      finally { locked.current = false; setBusy(false); }
     },
     quantity: (id: string, value: number) => run(async ports => { setCart(await ports.cart.setQuantity(id, value)); }),
     login: (email: string, password: string) => run(async ports => { setCustomer(await ports.customer.login(email, password)); if(ports.cart.syncCustomer)setCart(await ports.cart.syncCustomer()); }),

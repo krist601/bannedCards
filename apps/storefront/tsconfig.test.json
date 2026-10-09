@@ -1,6 +1,28 @@
 {
   "extends": "./tsconfig.json",
-  "compilerOptions": { "module": "commonjs", "moduleResolution": "node", "noEmit": false, "incremental": false, "outDir": ".test-build", "rootDir": "src", "isolatedModules": false },
-  "include": ["src/config/storefront-sections.ts","src/adapters/google-auth.ts","src/adapters/sealed-directory.ts", "src/application/sealed-catalogue.ts", "src/adapters/sealed-repository.ts", "src/adapters/medusa-repositories.ts", "src/application/bulk-cards.ts", "src/application/group-cards.ts", "src/application/catalogue.ts", "src/application/filter-catalogue.ts"],
-  "exclude": ["node_modules"]
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "incremental": false,
+    "outDir": ".test-build",
+    "rootDir": "src",
+    "isolatedModules": false
+  },
+  "include": [
+    "src/config/storefront-sections.ts",
+    "src/adapters/google-auth.ts",
+    "src/adapters/sealed-directory.ts",
+    "src/application/sealed-catalogue.ts",
+    "src/adapters/sealed-repository.ts",
+    "src/adapters/medusa-repositories.ts",
+    "src/application/bulk-cards.ts",
+    "src/application/group-cards.ts",
+    "src/application/catalogue.ts",
+    "src/application/filter-catalogue.ts",
+    "src/application/cart.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

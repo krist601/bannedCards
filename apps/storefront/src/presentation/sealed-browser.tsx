@@ -25,13 +25,25 @@ function ProductRow({title,items,href,...props}:Pick<Props,'cart'|'disabled'|'on
   return <section className="sealed-row"><div className="section-head"><h2>{t(title)}</h2><div className="row-controls"><button aria-label={`Scroll ${t(title)} left`} onClick={()=>track.current?.scrollBy({left:-track.current.clientWidth,behavior:'smooth'})}>←</button><button aria-label={`Scroll ${t(title)} right`} onClick={()=>track.current?.scrollBy({left:track.current.clientWidth,behavior:'smooth'})}>→</button></div></div>{!items.length&&<p className="row-empty">{title==='Deals'?t("No deals available right now."):title==='Almost gone'?t("No products are running low right now."):t("Products are coming soon.")}</p>}<div className="product-track" ref={track}>{items.slice(0,10).map(item=><SealedCard key={item.id} item={item} {...props}/>)}<Link className="more-tile" href={href}><span>{t("Explore more")}</span><strong>{t(title)} →</strong></Link></div></section>;
 }
 type Slide={images?:{src:string;name:string}[];title:string;description?:string;href:string;image?:string;background?:string;color?:string;set?:string};
+/** How many overlapped products fit the screen: 5 on desktop, 3 on tablets, 2 on phones. */
+function useFanSize(max:number){
+  const [size,setSize]=useState(max);
+  useEffect(()=>{
+    const queries=[window.matchMedia('(max-width:600px)'),window.matchMedia('(max-width:1100px)')];
+    const update=()=>setSize(queries[0].matches?Math.min(2,max):queries[1].matches?Math.min(3,max):max);
+    update();queries.forEach(q=>q.addEventListener('change',update));
+    return()=>queries.forEach(q=>q.removeEventListener('change',update));
+  },[max]);
+  return size;
+}
 function BrowseCarousel({title,slides}:{title:string;slides:Slide[]}){
  const {t}=useLocale();
   const [index,setIndex]=useState(0);
+  const fan=useFanSize(5);
   const active=slides[index%Math.max(slides.length,1)];
   if(!active)return null;
   return <section className="browse-carousel set-hero" aria-label={t(title)} aria-roledescription="carousel"><div className="set-carousel-controls"><div className="row-controls"><button aria-label={`Previous ${t(title)} banner`} onClick={()=>setIndex(value=>(value-1+slides.length)%slides.length)}>←</button><span>{index%slides.length+1} / {slides.length}</span><button aria-label={`Next ${t(title)} banner`} onClick={()=>setIndex(value=>(value+1)%slides.length)}>→</button></div></div><div className="browse-slide" style={{'--banner-color':'var(--primary)'} as CSSProperties}>
-{active.background&&<img className="browse-background" src={active.background} alt=""/>}<div className="browse-shape"/><div className="browse-copy"><p className="eyebrow">{active.set||'Magic: The Gathering'}</p><h3>{active.title}</h3>{active.description&&<p>{active.description}</p>}<Link className="button" href={active.href}>{t("Explore")} {active.title} →</Link></div><div className={`browse-cutout ${active.images?.length?"browse-product-group":""}`}>{active.images?.length?active.images.map(image=><BannerProductImage key={image.src} src={image.src} name={image.name}/>):active.image?<BannerProductImage key={active.image} src={active.image} name={active.title}/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{active.title}</strong></div>}</div></div></section>;
+{active.background&&<img className="browse-background" src={active.background} alt=""/>}<div className="browse-shape"/><div className="browse-copy"><p className="eyebrow">{active.set||'Magic: The Gathering'}</p><h3>{active.title}</h3>{active.description&&<p>{active.description}</p>}<Link className="button" href={active.href}>{t("Explore")} {active.title} →</Link></div><div className={`browse-cutout ${active.images?.length?"browse-product-group":""}`}>{active.images?.length?active.images.slice(0,fan).map((image,position,shown)=>{const offset=position-(shown.length-1)/2;return <BannerProductImage key={image.src} src={image.src} name={image.name} style={{'--o':offset,'--a':Math.abs(offset)} as CSSProperties}/>;}):active.image?<BannerProductImage key={active.image} src={active.image} name={active.title}/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{active.title}</strong></div>}</div></div></section>;
 }
 function CategoryRow({banners}:{banners:Banner[]}) {
  const {t}=useLocale();

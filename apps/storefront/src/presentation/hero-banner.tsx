@@ -6,9 +6,12 @@ import type { CatalogueItem } from "@/domain/commerce";
 import { shopSections } from "@/config/shop-sections";
 import { pagePaths, joinNames, shippingProviders } from "@/config/site";
 import { useLocale } from "./locale-provider";
+import { SkeletonImage } from "./skeleton-image";
 
 type Tile = { name: string; price: number | null; image?: string; note?: string };
 type Key = "singles" | "sealed" | "custom" | "accessories";
+type SlideKey = Key | "events";
+const EVENTS_URL = "https://eventhoy.com/categoria/juegos";
 type Props = {
   home: boolean;
   enabled: Record<Key, boolean> & { bulk: boolean };
@@ -24,7 +27,8 @@ const ROTATE_MS = 7000;
 const text = {
   es: {
     prev: "Banner anterior", next: "Banner siguiente", label: "Destacados de la tienda",
-    names: { singles: "Cartas sueltas", sealed: "Sellados", custom: "Productos personalizados", accessories: "Accesorios" },
+    names: { singles: "Cartas sueltas", sealed: "Sellados", custom: "Productos personalizados", accessories: "Accesorios", events: "Eventos" },
+    events: { eyebrow: "Juega en persona", title: ["Eventos de Magic", "cerca de ti."], copy: "Encuentra torneos, noches de juego y eventos de cartas cerca de ti en EventHoy, un amigo de la tienda.", cta: "Buscar eventos" },
     singles: { eyebrow: "Magic: The Gathering · Chile", title: ["Encuentra la próxima carta", "para tu mazo."], copy: "Cartas sueltas con la condición, el idioma y el acabado indicados. Lo que ves es exactamente lo que recibes.", cta: "Ver cartas sueltas", secondary: "Buscar mi lista" },
     sealed: { eyebrow: "Abre algo nuevo", title: ["Tu próxima apertura", "comienza aquí."], copy: "Sobres, cajas, bundles, mazos preconstruidos y lanzamientos especiales.", cta: "Ver productos sellados" },
     custom: { eyebrow: "Hecho por nosotros", title: ["Hecho en casa,", "hecho para tu mesa."], copy: "Mazos personalizados y packs de tokens diseñados por nuestro equipo.", cta: "Ver productos personalizados" },
@@ -36,7 +40,8 @@ const text = {
   },
   en: {
     prev: "Previous banner", next: "Next banner", label: "Store highlights",
-    names: { singles: "Singles", sealed: "Sealed", custom: "Custom products", accessories: "Accessories" },
+    names: { singles: "Singles", sealed: "Sealed", custom: "Custom products", accessories: "Accessories", events: "Events" },
+    events: { eyebrow: "Play in person", title: ["Magic events", "near you."], copy: "Find tournaments, game nights and card events close to you on EventHoy, a friend of the store.", cta: "Find events" },
     singles: { eyebrow: "Magic: The Gathering · Chile", title: ["Find the next card", "for your deck."], copy: "Singles with condition, language and finish shown. What you see is exactly what you get.", cta: "Browse singles", secondary: "Find my list" },
     sealed: { eyebrow: "Open something new", title: ["Your next opening", "starts here."], copy: "Booster packs, boxes, bundles, preconstructed decks and special releases.", cta: "Browse sealed products" },
     custom: { eyebrow: "Made by us", title: ["Made in-house,", "made for your table."], copy: "Custom decks and token packs designed by our team.", cta: "Browse custom products" },
@@ -48,13 +53,15 @@ const text = {
   },
 } as const;
 
-function Visual({ tiles, priority, max = 3 }: { tiles: Tile[]; priority?: boolean; max?: number }) {
+function Visual({ tiles, priority, max = 3, loading = false }: { tiles: Tile[]; priority?: boolean; max?: number; loading?: boolean }) {
   const { t } = useLocale();
   const shown = tiles.filter(tile => tile.image).slice(0, max);
-  if (!shown.length) return <div className="hb-visual hb-visual-empty" aria-hidden="true"><span>B</span><span>C</span></div>;
+  if (!shown.length) return <div className={`hb-visual hb-visual-${max}${loading ? " hb-skeleton-loading" : ""}`} aria-hidden="true">
+    {Array.from({ length: max }, (_, index) => <figure className={`hb-tile hb-tile-${index}`} key={index}><span className="hb-skel" /></figure>)}
+  </div>;
   return <div className={`hb-visual hb-visual-${shown.length}`}>
     {shown.map((tile, index) => <figure className={`hb-tile hb-tile-${index}`} key={tile.name + index}>
-      <img src={tile.image} alt={tile.name} loading={priority ? "eager" : "lazy"} onError={event => { event.currentTarget.style.visibility = "hidden"; }} />
+      <SkeletonImage src={tile.image!} alt={tile.name} loading={priority ? "eager" : "lazy"} />
       {tile.price !== null && <figcaption><b>{money(tile.price)}</b><span>{t(tile.note ?? "")}</span></figcaption>}
     </figure>)}
   </div>;
@@ -65,7 +72,13 @@ export function HeroBanner({ home, enabled, featuredCards, cardCount, onOpenBulk
   const { locale } = useLocale();
   const l = text[locale === "en" ? "en" : "es"];
   const [api, setApi] = useState<Partial<Record<Key, Tile[]>>>({});
-  const keys = useMemo(() => (["singles", "custom", "accessories", "sealed"] as Key[]).filter(key => enabled[key]), [enabled]);
+  // `enabled` is an inline object from the parent: depend on its primitives so renders do not re-fetch.
+  const { singles, custom, accessories, sealed } = enabled;
+  const keys = useMemo(() => {
+    const on: Record<string, boolean> = { singles, custom, accessories, sealed };
+    const shop = (["singles", "custom", "accessories", "sealed"] as Key[]).filter(key => on[key]);
+    return (shop.length ? [...shop, "events"] : shop) as SlideKey[];
+  }, [singles, custom, accessories, sealed]);
   const [index, setIndex] = useState(0), [paused, setPaused] = useState(false), [reduced, setReduced] = useState(false);
   const active = keys.length ? Math.min(index, keys.length - 1) : 0;
 
@@ -82,9 +95,10 @@ export function HeroBanner({ home, enabled, featuredCards, cardCount, onOpenBulk
         setApi(current => ({ ...current, [key]: items.map(item => ({ name: item.name, price: item.price, image: item.attributes?.productCutout || item.imageUrl, note: "" })) }));
       } catch { /* the slide falls back to text only */ }
     };
-    (["custom", "accessories", "sealed"] as const).filter(key => enabled[key]).forEach(key => void load(key));
+    const on = { custom, accessories, sealed };
+    (["custom", "accessories", "sealed"] as const).filter(key => on[key]).forEach(key => void load(key));
     return () => controller.abort();
-  }, [home, enabled]);
+  }, [home, custom, accessories, sealed]);
   useEffect(() => {
     if (!home || keys.length < 2 || paused || reduced) return;
     const timer = setInterval(() => setIndex(current => (current + 1) % keys.length), ROTATE_MS);
@@ -93,7 +107,7 @@ export function HeroBanner({ home, enabled, featuredCards, cardCount, onOpenBulk
   const go = useCallback((next: number) => setIndex((next + keys.length) % keys.length), [keys.length]);
 
   const cardTiles: Tile[] = featuredCards.filter(card => card.imageUrl && card.price !== null).slice(0, 3).map(card => ({ name: card.name, price: card.price, image: card.imageUrl, note: card.condition === "Near Mint" ? "NM" : card.condition }));
-  const tilesFor = (key: Key): Tile[] => key === "singles" ? cardTiles : (api[key] ?? []);
+  const tilesFor = (key: SlideKey): Tile[] => key === "events" ? [] : key === "singles" ? cardTiles : (api[key] ?? []);
 
   // ---- singles page: compact catalogue banner ----
   if (!home) {
@@ -110,13 +124,13 @@ export function HeroBanner({ home, enabled, featuredCards, cardCount, onOpenBulk
             {enabled.bulk && <button type="button" className="hb-btn hb-btn-solid" aria-haspopup="dialog" onClick={onOpenBulk}>{l.page.bulk} →</button>}
           </div>
         </div>
-        <Visual tiles={cardTiles} priority />
+        <Visual tiles={cardTiles} priority loading={!featuredCards.length} />
       </div>
     </section>;
   }
 
   if (!keys.length) return null;
-  const slideName = (key: Key) => l.names[key];
+  const slideName = (key: SlideKey) => l.names[key];
   const hrefOf = (key: Key) => key === "singles" ? "/singles" : key === "sealed" ? "/sealed" : shopSections[key].path;
   return <section id="top" className="hb" aria-roledescription="carousel" aria-label={l.label} onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)} onFocus={() => setPaused(true)} onBlur={() => setPaused(false)}>
     <div className="hb-decor" aria-hidden="true" />
@@ -130,16 +144,20 @@ export function HeroBanner({ home, enabled, featuredCards, cardCount, onOpenBulk
             <h1>{copy.title[0]}<br />{copy.title[1]}</h1>
             <p className="hb-text">{copy.copy}</p>
             <div className="hb-actions">
-              <Link className="hb-btn hb-btn-solid" href={hrefOf(key)}>{copy.cta} →</Link>
+              {key === "events"
+                ? <a className="hb-btn hb-btn-solid" href={EVENTS_URL} target="_blank" rel="noopener">{copy.cta} →</a>
+                : <Link className="hb-btn hb-btn-solid" href={hrefOf(key)}>{copy.cta} →</Link>}
               {key === "singles" && enabled.bulk && <button type="button" className="hb-btn hb-btn-ghost" aria-haspopup="dialog" onClick={onOpenBulk}>{l.singles.secondary}</button>}
             </div>
             {key === "singles" && <div className="hb-actions hb-chips">
               <Link className="hb-chip" href="/singles?view=added">{l.chips.added}</Link>
               <Link className="hb-chip" href="/singles?view=latest">{l.chips.latest}</Link>
             </div>}
-            <ul className="hb-trust">{l.trust.map((item, i) => <li key={item}>{i === 2 ? `${item} · ${joinNames(shippingProviders, locale)}` : item}</li>)}</ul>
+            {key !== "events" && <ul className="hb-trust">{l.trust.map((item, i) => <li key={item}>{i === 2 ? `${item} · ${joinNames(shippingProviders, locale)}` : item}</li>)}</ul>}
           </div>
-          <Visual tiles={tilesFor(key)} priority={position === 0} max={key === "custom" ? 2 : 3} />
+          {key === "events"
+            ? <div className="hb-visual hb-visual-events" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z" /><circle cx="12" cy="10" r="2.4" /></svg><span>EventHoy</span></div>
+            : <Visual tiles={tilesFor(key)} priority={position === 0} max={key === "custom" ? 2 : 3} loading={key === "singles" ? !featuredCards.length : api[key] === undefined} />}
         </div>;
       })}
     </div>

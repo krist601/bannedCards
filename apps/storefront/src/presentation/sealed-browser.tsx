@@ -7,6 +7,7 @@ import {useEffect,useRef,useState,type CSSProperties} from 'react';
 import type {CatalogueItem,Cart} from '@/domain/commerce';
 import {sealedCategories,sealedCollections,type SealedView} from '@/config/sealed';
 import {CardImage} from './card-image';
+import {SkeletonImage} from './skeleton-image';
 import {BannerProductImage} from './banner-product-image';
 type Props={query:string;cart:Cart;disabled:boolean;onAdd(item:CatalogueItem):void;home?:boolean;view?:SealedView;initialLanguage?:string};
 type Banner={categories:string[];image?:string;background?:string;color?:string;set:string};
@@ -37,7 +38,7 @@ function CategoryRow({banners}:{banners:Banner[]}) {
   const track=useRef<HTMLDivElement>(null);
   return <section className="sealed-row"><div className="section-head"><h2>{t("Shop by product")}</h2><div className="row-controls"><button aria-label="Scroll categories left" onClick={()=>track.current?.scrollBy({left:-track.current.clientWidth,behavior:'smooth'})}>←</button><button aria-label="Scroll categories right" onClick={()=>track.current?.scrollBy({left:track.current.clientWidth,behavior:'smooth'})}>→</button></div></div><div className="product-track category-track" ref={track}>{sealedCategories.map(category=>{
     const banner=banners.find(b=>b.categories.includes(category.slug));
-    return <Link className={`category-tile category-${category.slug}`} key={category.slug} href={`/sealed/${category.slug}`}><div className="category-art">{banner?.image?<img src={banner.image} alt=""/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{t(category.name)}</strong></div>}</div><h3>{t(category.name)}</h3><p>{t(category.description)}</p><strong>{t("Explore →")}</strong></Link>;
+    return <Link className={`category-tile category-${category.slug}`} key={category.slug} href={`/sealed/${category.slug}`}><div className="category-art">{banner?.image?<SkeletonImage src={banner.image} alt=""/>:<div className="package-placeholder" aria-hidden="true"><span>BANNED CARDS</span><strong>{t(category.name)}</strong></div>}</div><h3>{t(category.name)}</h3><p>{t(category.description)}</p><strong>{t("Explore →")}</strong></Link>;
   })}</div></section>;
 }
 export function SealedBrowser(props:Props){

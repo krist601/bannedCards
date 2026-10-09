@@ -7,7 +7,8 @@ import { GoogleButton } from "./google-button";
 import { loadOrders, loadEmailVerification, sendEmailVerification, loadProfile, saveProfile, type AccountOrder, type Profile } from "@/adapters/account-repository";
 import { accountPath } from "@/config/site";
 import { useLocale } from "./locale-provider";
-import { PaymentBadge } from "./checkout-dialog";
+import { PaymentBadge } from "./payment-badge";
+import { SkeletonImage } from "./skeleton-image";
 
 const text = {
   es: {
@@ -193,7 +194,7 @@ export function AccountPage({ customer, loading, demo, onLogin, onLogout, onName
                 </div>
               </div>
               <ul className="acctp-items">{order.items?.map(item => <li key={item.id}>
-                {item.thumbnail ? <img src={item.thumbnail} alt="" loading="lazy" /> : <span className="acctp-thumb" aria-hidden="true" />}
+                {item.thumbnail ? <span className="acctp-thumb"><SkeletonImage src={item.thumbnail} alt="" /></span> : <span className="acctp-thumb" aria-hidden="true" />}
                 <span className="acctp-item-name">{item.title}<small>{item.quantity} × {typeof item.unit_price === "number" ? money(item.unit_price, order.currency_code) : ""}</small></span>
                 {typeof item.unit_price === "number" && <b>{money(item.unit_price * item.quantity, order.currency_code)}</b>}
               </li>)}</ul>

@@ -21,7 +21,7 @@ function usePage(section:ShopSectionKey,params:Record<string,string>,offset:numb
  useEffect(()=>{
   const controller=new AbortController();setLoading(true);setError('');
   const timer=setTimeout(()=>{
-   fetch(`/api/shop/${section}?${new URLSearchParams({...JSON.parse(key),offset:String(offset)})}`,{signal:controller.signal,cache:'no-store'})
+   fetch(`/api/shop/${section}?${new URLSearchParams({...JSON.parse(key),offset:String(offset)})}`,{signal:controller.signal})
     .then(async response=>{if(!response.ok)throw new Error('Unable to load products. Please retry.');return response.json() as Promise<Page>;})
     .then(next=>{if(!controller.signal.aborted){setPage(previous=>offset===0||!previous?next:{...next,items:[...previous.items,...next.items]});setLoading(false);}})
     .catch(failure=>{if(!controller.signal.aborted){setError(failure.message);setLoading(false);}});

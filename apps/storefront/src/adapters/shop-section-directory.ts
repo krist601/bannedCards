@@ -39,3 +39,16 @@ export async function loadShopSectionDirectory(key:ShopSectionKey,signal?:AbortS
  }));
  return {items,categories:children.map(c=>({handle:c.handle,name:c.name}))};
 }
+
+const FRESH_MS=60_000,STALE_MS=600_000;
+type Entry={value?:ShopSectionDirectory;at:number;flight?:Promise<ShopSectionDirectory>};
+const cache=new Map<ShopSectionKey,Entry>();
+/** In-process stale-while-revalidate: fresh 60 s, then served stale up to 10 min while one background refresh runs. Errors are never cached. */
+export function loadShopSectionDirectoryCached(key:ShopSectionKey):Promise<ShopSectionDirectory>{
+ const entry=cache.get(key)??{at:0};cache.set(key,entry);
+ const age=Date.now()-entry.at;
+ const refresh=()=>entry.flight??(entry.flight=loadShopSectionDirectory(key).then(value=>{entry.value=value;entry.at=Date.now();return value;}).finally(()=>{entry.flight=undefined;}));
+ if(entry.value&&age<FRESH_MS)return Promise.resolve(entry.value);
+ if(entry.value&&age<STALE_MS){refresh().catch(()=>undefined);return Promise.resolve(entry.value);}
+ return refresh();
+}

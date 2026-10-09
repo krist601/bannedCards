@@ -4,13 +4,9 @@ import type { Cart, CheckoutContact, PlacedOrder } from "@/domain/commerce";
 import { lineAvailability, purchasableQuantity } from "@/application/cart";
 import { CheckoutFailed, type StockProblem } from "@/adapters/medusa-repositories";
 import { useLocale } from "./locale-provider";
+import { PaymentBadge } from "./payment-badge";
 
 type Props = { cart: Cart; total: number; customer: string; price(value: number): string; onSubmit(contact: CheckoutContact): Promise<PlacedOrder>; onClose(): void; onBackToCart(): void };
-
-export function PaymentBadge({ status }: { status: "paid" | "not_paid" }) {
-  const { t } = useLocale();
-  return <span className={`payment-badge payment-badge-${status === "paid" ? "paid" : "unpaid"}`}>{status === "paid" ? t("Paid") : t("Not paid")}</span>;
-}
 
 /** Test checkout: contact details, summary and a button that places an unpaid order. */
 export function CheckoutDialog({ cart, total, customer, price, onSubmit, onClose, onBackToCart }: Props) {

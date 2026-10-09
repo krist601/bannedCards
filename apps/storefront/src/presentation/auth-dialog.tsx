@@ -73,7 +73,7 @@ export function AuthDialog({ mode, onMode, checkoutPending, demo, busy, error, o
   return <div className="auth-backdrop" onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
     <div className="auth-modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" ref={panel}>
       <aside className="auth-aside">
-        <Image src="/brand/logo-horizontal-white.png" alt="Banned Cards" width={200} height={66} priority />
+        <Image src="/brand/logo-horizontal-white.png" alt="Banned Cards" width={210} height={70} priority />
         <h2>{l.brandTitle}</h2>
         <p>{l.brandLead}</p>
         <ul>{l.perks.map(perk => <li key={perk}><Check /><span>{perk}</span></li>)}</ul>

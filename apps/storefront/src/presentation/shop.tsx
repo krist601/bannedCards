@@ -4,24 +4,20 @@ import {useSections} from "./sections-provider";
 import {useLocale} from "./locale-provider";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { BuyCards } from "@/presentation/buy-cards";
-import { VerifyEmail } from "@/presentation/verify-email";
-import { AuthDialog, type AuthValues } from "@/presentation/auth-dialog";
+import dynamic from "next/dynamic";
+import type { AuthValues } from "@/presentation/auth-dialog";
 import { ServiceHighlights } from "@/presentation/service-highlights";
 import { SiteFooter } from "@/presentation/site-footer";
-import { ContentPage } from "@/presentation/content-page";
 import { ShopSectionBrowser } from "@/presentation/shop-section-browser";
 import type { ShopSectionKey } from "@/config/shop-sections";
 import { HeroCarousel } from "@/presentation/hero-carousel";
 import { ShopMenu } from "@/presentation/shop-menu";
-import { AccountPage } from "@/presentation/account-page";
 import { useRouter } from "next/navigation";
 import { accountPath } from "@/config/site";
 import {registerAccount,sendEmailVerification} from "@/adapters/account-repository";
 import { useCommerce } from "@/presentation/use-commerce";
 import { cartHasUnavailable, cartItemCount, cartTotal } from "@/application/cart";
 import { CartLineView } from "@/presentation/cart-line";
-import { CheckoutDialog } from "@/presentation/checkout-dialog";
 import { groupCards } from "@/application/group-cards";
 import { ProductCard } from "@/presentation/product-card";
 import type { CatalogueItem } from "@/domain/commerce";
@@ -29,9 +25,19 @@ import type { CatalogueItem } from "@/domain/commerce";
 import type { CatalogueFilter } from "@/domain/set-directory";
 import { useCataloguePages } from "@/presentation/use-catalogue-pages";
 import { useSetDirectory } from "@/presentation/use-set-directory";
-import { SealedBrowser } from "@/presentation/sealed-browser";
 import type { SealedView } from "@/config/sealed";
-import { SetSidebar } from "@/presentation/set-sidebar";
+// Rarely used pieces load as separate chunks (still server-rendered where they render on first paint).
+const ContentPage = dynamic(() => import("@/presentation/content-page").then(m => m.ContentPage));
+const AccountPage = dynamic(() => import("@/presentation/account-page").then(m => m.AccountPage));
+const VerifyEmail = dynamic(() => import("@/presentation/verify-email").then(m => m.VerifyEmail));
+const BuyCards = dynamic(() => import("@/presentation/buy-cards").then(m => m.BuyCards));
+const loadAuth = () => import("@/presentation/auth-dialog");
+const loadCheckout = () => import("@/presentation/checkout-dialog");
+const AuthDialog = dynamic(() => loadAuth().then(m => m.AuthDialog));
+const CheckoutDialog = dynamic(() => loadCheckout().then(m => m.CheckoutDialog));
+const SealedBrowser = dynamic(() => import("@/presentation/sealed-browser").then(m => m.SealedBrowser));
+const SetSidebar = dynamic(() => import("@/presentation/set-sidebar").then(m => m.SetSidebar));
+const warmCart = () => { void loadAuth(); void loadCheckout(); };
 
 const price = (value: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(value);
 
@@ -46,10 +52,11 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
   const [filter, setFilter] = useState<CatalogueFilter>({ kind: "added" });
   // Links like /singles?view=latest (from the Home banner) pick the starting filter.
   useEffect(() => { if (!singles) return; const view = new URLSearchParams(window.location.search).get("view"); if (view === "latest" || view === "added" || view === "all") setFilter({ kind: view }); }, [singles]);
-  const directory = useSetDirectory();
+  const directory = useSetDirectory(singles);
   const commerce = useCommerce();
   const { cart, customer } = commerce;
-  const catalogue = useCataloguePages({q:singles ? query : "",showOutOfStock, ...(!singles ? {limit:20} : {}), ...(singles && filter.kind === "set" ? {sets:filter.setCodes ?? [filter.code]} : singles && filter.kind === "latest" ? {sets:directory.latestSetCodes} : singles && filter.kind === "added" ? {sort:"release" as const} : {})}, !buyCards && sealedView === undefined && !(filter.kind === "latest" && (directory.loading || Boolean(directory.error))));
+  const home = !singles && !standalone && sealedView === undefined && shopSection === undefined;
+  const catalogue = useCataloguePages({q:singles ? query : "",showOutOfStock, ...(!singles ? {limit:20} : {}), ...(singles && filter.kind === "set" ? {sets:filter.setCodes ?? [filter.code]} : singles && filter.kind === "latest" ? {sets:directory.latestSetCodes} : singles && filter.kind === "added" ? {sort:"release" as const} : {})}, (singles || home) && !(filter.kind === "latest" && (directory.loading || Boolean(directory.error))));
   const cards = catalogue.cards;
   const [cartOpen, setCartOpen] = useState(false);
   const router = useRouter();
@@ -113,7 +120,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
     <div className="mobile-shop-bar" role="region" aria-label={t("Cart")}>
       {singles && <div id="mobile-filter-slot" />}
       <div className="mobile-cart-total"><span>{t("Subtotal")}</span><strong>{price(total)}</strong></div>
-      <button className="mobile-cart-open" type="button" aria-label={`${t("Cart")}: ${itemCount}`} onClick={() => setCartOpen(true)}>
+      <button className="mobile-cart-open" type="button" onPointerEnter={warmCart} onFocus={warmCart} aria-label={`${t("Cart")}: ${itemCount}`} onClick={() => setCartOpen(true)}>
         <svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M2 3h3l3 12h11l3-9H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/></svg><b>{itemCount}</b>
       </button>
     </div>
@@ -124,7 +131,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
         <input id="card-search" type="search" value={query} onChange={event => { setQuery(event.target.value); if (singles) setFilter({ kind: "all" }); }} placeholder={t("Search products…")} />
         <button type="submit">{t("Search")}</button>
       </form>
-      <button className="cart header-cart" type="button" aria-label={`Open cart, ${itemCount} items`} onClick={() => setCartOpen(true)}>{t("Cart")}<b>{itemCount}</b></button>
+      <button className="cart header-cart" type="button" onPointerEnter={warmCart} onFocus={warmCart} aria-label={`Open cart, ${itemCount} items`} onClick={() => setCartOpen(true)}>{t("Cart")}<b>{itemCount}</b></button>
       <ShopMenu customer={customer} onAccount={()=>customer?router.push(accountPath):setLoginOpen(true)}/>
     </header>
     <nav className="shop-nav" aria-label="Shop"><Link href="/" aria-current={!standalone && !singles && sealedView === undefined && shopSection === undefined ? "page" : undefined}>{t("Home")}</Link>{sections.sealed&&<Link href="/sealed" aria-current={sealedView !== undefined ? "page" : undefined}>{t("Sealed")}</Link>}{sections.singles&&<Link href="/singles" aria-current={singles ? "page" : undefined}>{t("Singles")}</Link>}{sections.custom&&<Link href="/custom" aria-current={shopSection === "custom" ? "page" : undefined}>{t("Custom products")}</Link>}{sections.accessories&&<Link href="/accessories" aria-current={shopSection === "accessories" ? "page" : undefined}>{t("Accessories")}</Link>}</nav>

@@ -10,3 +10,4 @@ export const privacyPolicyPath = "/politica-de-privacidad";
 export const pagePaths = { about: "/acerca-de-nosotros", terms: "/terminos-y-condiciones", contact: "/contacto", privacy: privacyPolicyPath } as const;
 export const joinNames = (names: string[], locale: "es" | "en") => names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + (locale === "en" ? " and " : " y ") + names[names.length - 1];
 export const accountPath = "/mi-cuenta";
+export const checkoutPath = "/finalizar-compra";

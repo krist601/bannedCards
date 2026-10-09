@@ -129,3 +129,9 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 ## Stores and warehouses
 - Each storefront deployment uses a publishable API key linked to its own Medusa sales channel. CMS Stores & warehouses controls stock-location links; prices remain shared. Configure the domain/CORS separately.
 - Browser and customer saved-cart identifiers are namespaced by publishable key. Legacy customer carts are restored only if the backend authorizes the current store; cross-store carts return 403.
+
+## Checkout page (/finalizar-compra)
+- Full page (not a dialog): `presentation/checkout-page.tsx`, rendered by `Shop legal="checkout"`; the cart drawer button and guest sign-up both `router.push(checkoutPath)`.
+- Form rules are pure and tested: `application/checkout-form.ts` (validation, `toCheckoutContact`), `application/rut.ts` (modulo-11 RUT), regions and RM comunas in `config/chile.ts`.
+- Contact sent to `/store/test-checkout` carries `lastName, region, address2, branch, document ("boleta"|"factura"), rut | company{rut,name,activity,address,comuna}, shipping:"starken"`; the backend validates it only when `document` is present.
+- Only Starken (envío por pagar) is offered. The success view links to `/mi-cuenta?tab=orders&order=<id>`, which scrolls to and highlights that order.

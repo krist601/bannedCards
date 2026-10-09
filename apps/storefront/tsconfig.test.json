@@ -20,7 +20,10 @@
     "src/application/group-cards.ts",
     "src/application/catalogue.ts",
     "src/application/filter-catalogue.ts",
-    "src/application/cart.ts"
+    "src/application/cart.ts",
+    "src/application/rut.ts",
+    "src/application/checkout-form.ts",
+    "src/config/chile.ts"
   ],
   "exclude": [
     "node_modules"

@@ -114,9 +114,15 @@ export function AccountPage({ customer, loading, demo, onLogin, onLogout, onName
   const router = useRouter(), params = useSearchParams();
   const tab: Tab = tabKeys.includes(params.get("tab") as Tab) ? (params.get("tab") as Tab) : "orders";
   const welcome = params.get("welcome") === "1";
+  const focusOrder = params.get("order");
   const [orders, setOrders] = useState<AccountOrder[]>([]), [count, setCount] = useState(0), [ordersLoading, setOrdersLoading] = useState(true), [error, setError] = useState(false), [attempt, setAttempt] = useState(0);
   const [profile, setProfile] = useState<Profile | null>(null), [verified, setVerified] = useState<boolean | null>(null);
   const signedIn = Boolean(customer);
+  // Opened from the "Ver mi pedido" button of the order email: bring that order into view.
+  useEffect(() => {
+    if (tab !== "orders" || !focusOrder || ordersLoading) return;
+    document.getElementById(`order-${focusOrder}`)?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [tab, focusOrder, ordersLoading, orders.length]);
   useEffect(() => {
     if (!signedIn || demo) return;
     let active = true;
@@ -185,7 +191,7 @@ export function AccountPage({ customer, loading, demo, onLogin, onLogout, onName
           <header><h2>{titles[tab][0]}</h2><p>{titles[tab][1]}</p></header>
           {tab === "orders" && (ordersLoading && !orders.length ? <p role="status" className="muted">{l.loading}</p> : error && !orders.length ? <p role="alert">{l.ordersError} <button type="button" className="text-button" onClick={() => setAttempt(v => v + 1)}>{l.retry}</button></p> :
             !orders.length ? <div className="acctp-empty"><span aria-hidden="true">🛍️</span><h3>{l.noOrders}</h3><p>{l.noOrdersHint}</p><Link className="acctp-btn acctp-btn-solid" href="/">{l.startShopping}</Link></div> :
-            <div className="acctp-orders">{orders.map(order => <article className="acctp-order" key={order.id}>
+            <div className="acctp-orders">{orders.map(order => <article className={`acctp-order${focusOrder === order.id ? " is-focus" : ""}`} id={`order-${order.id}`} key={order.id}>
               <div className="acctp-order-head">
                 <div><strong>{l.order} #{order.display_id}</strong><span>{date(order.created_at)}</span></div>
                 <div className="acctp-chips">

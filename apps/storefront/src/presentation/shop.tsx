@@ -13,7 +13,7 @@ import type { ShopSectionKey } from "@/config/shop-sections";
 import { HeroCarousel } from "@/presentation/hero-carousel";
 import { ShopMenu } from "@/presentation/shop-menu";
 import { useRouter } from "next/navigation";
-import { accountPath } from "@/config/site";
+import { accountPath, checkoutPath } from "@/config/site";
 import {registerAccount,sendEmailVerification} from "@/adapters/account-repository";
 import { useCommerce } from "@/presentation/use-commerce";
 import { cartHasUnavailable, cartItemCount, cartTotal } from "@/application/cart";
@@ -32,16 +32,16 @@ const AccountPage = dynamic(() => import("@/presentation/account-page").then(m =
 const VerifyEmail = dynamic(() => import("@/presentation/verify-email").then(m => m.VerifyEmail));
 const BuyCards = dynamic(() => import("@/presentation/buy-cards").then(m => m.BuyCards));
 const loadAuth = () => import("@/presentation/auth-dialog");
-const loadCheckout = () => import("@/presentation/checkout-dialog");
+const loadCheckout = () => import("@/presentation/checkout-page");
 const AuthDialog = dynamic(() => loadAuth().then(m => m.AuthDialog));
-const CheckoutDialog = dynamic(() => loadCheckout().then(m => m.CheckoutDialog));
+const CheckoutPage = dynamic(() => loadCheckout().then(m => m.CheckoutPage));
 const SealedBrowser = dynamic(() => import("@/presentation/sealed-browser").then(m => m.SealedBrowser));
 const SetSidebar = dynamic(() => import("@/presentation/set-sidebar").then(m => m.SetSidebar));
 const warmCart = () => { void loadAuth(); void loadCheckout(); };
 
 const price = (value: number) => new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(value);
 
-export function Shop({ singles = false, sealedView, initialLanguage, buyCards=false, shopSection, legal }: { legal?: "privacy" | "about" | "terms" | "contact" | "verify-email" | "account"; shopSection?: ShopSectionKey; buyCards?:boolean; singles?: boolean; sealedView?: SealedView; initialLanguage?: string }) {
+export function Shop({ singles = false, sealedView, initialLanguage, buyCards=false, shopSection, legal }: { legal?: "privacy" | "about" | "terms" | "contact" | "verify-email" | "account" | "checkout"; shopSection?: ShopSectionKey; buyCards?:boolean; singles?: boolean; sealedView?: SealedView; initialLanguage?: string }) {
  const {t,locale}=useLocale();
  const sections=useSections();
   const standalone = buyCards || legal !== undefined;
@@ -60,8 +60,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
   const cards = catalogue.cards;
   const [cartOpen, setCartOpen] = useState(false);
   const router = useRouter();
-  const [checkoutOpen,setCheckoutOpen]=useState(false);
-  // A guest pressed "checkout": after creating (or opening) an account the order dialog opens, with the guest cart already saved to it.
+  // A guest pressed "checkout": after creating (or opening) an account the checkout page opens, with the guest cart already saved to it.
   const [checkoutPending,setCheckoutPending]=useState(false);
   const [register,setRegister]=useState(false);
   const [authError,setAuthError]=useState("");
@@ -97,7 +96,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
     const fresh = await commerce.refresh();
     if (!fresh || cartHasUnavailable(fresh)) return;   // sold-out lines stay visible in the cart with their explanation
     if (!customer) { setRegister(true); setAuthError(""); setCheckoutPending(true); setCartOpen(false); setLoginOpen(true); return; }
-    setCartOpen(false); setCheckoutOpen(true);
+    setCartOpen(false); router.push(checkoutPath);
   }
   function quantity(id: string, next: number) { void commerce.quantity(id, next); }
   async function submitAuth({ email, password, firstName }: AuthValues) {
@@ -108,7 +107,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
         // Only accounts created with our own form need an email confirmation; Google accounts arrive already verified.
         if(register&&!commerce.demoMode)await sendEmailVerification(locale).catch(()=>undefined);
         setLoginOpen(false);
-        if(checkoutPending){setCheckoutPending(false);const fresh=await commerce.refresh();if(fresh&&!cartHasUnavailable(fresh))setCheckoutOpen(true);else setCartOpen(true);}else if(register&&!commerce.demoMode)router.push(`${accountPath}?welcome=1`);
+        if(checkoutPending){setCheckoutPending(false);const fresh=await commerce.refresh();if(fresh&&!cartHasUnavailable(fresh))router.push(checkoutPath);else setCartOpen(true);}else if(register&&!commerce.demoMode)router.push(`${accountPath}?welcome=1`);
       }
     }catch(error){setAuthError(error instanceof Error?error.message:"Unable to sign in.");}
     finally{setAuthBusy(false);}
@@ -142,6 +141,7 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
     {buyCards&&<BuyCards/>}
     {(legal==="privacy"||legal==="about"||legal==="terms"||legal==="contact")&&<ContentPage page={legal}/>}
     {legal==="verify-email"&&<VerifyEmail/>}
+    {legal==="checkout"&&<CheckoutPage cart={cart} customer={customer} loading={commerce.loading} demo={commerce.demoMode} price={price} onLogin={()=>{setRegister(true);setAuthError("");setLoginOpen(true);}} onSubmit={contact=>commerce.checkout(contact,locale)} />}
     {legal==="account"&&<AccountPage customer={customer} loading={commerce.loading} demo={commerce.demoMode} onLogin={()=>setLoginOpen(true)} onNameChange={commerce.setCustomerName} onLogout={()=>{void commerce.logout().then(success=>{if(success)router.push("/");});}} />}
     {sections.sealed && (sealedView!==undefined||sections.homeSealed) && !standalone && !singles && shopSection===undefined && <SealedBrowser key={JSON.stringify([sealedView,initialLanguage])} home={sealedView === undefined} view={sealedView} initialLanguage={initialLanguage} query={query} cart={cart} disabled={commerce.disabled} onAdd={card => void add(card)} />}
     {sections.singles && (singles||sections.homeSingles) && !standalone && sealedView === undefined && shopSection === undefined && <section id="singles" className="catalogue"><div className="section-head"><div><p className="eyebrow">{singles ? t("Complete catalogue") : t("Featured singles")}</p><h2>{!singles ? t("Most expensive cards") : filter.kind === "added" ? t("Latest added") : filter.kind === "latest" ? t("Latest releases") : filter.kind === "set" ? filter.name : t("Magic singles")}</h2>{(!singles || filter.kind === "added") && <p className="ranking-caption">{t(singles ? "Newest additions to our catalogue" : "Our 20 most expensive available cards")}</p>}</div>{singles ? <span>{catalogue.count} {t("cards found")}</span> : <Link className="button" href="/singles">{t("Browse all singles →")}</Link>}</div><div className={singles ? "catalogue-layout" : ""}>{singles && <SetSidebar showOutOfStock={showOutOfStock} onShowOutOfStockChange={setShowOutOfStock} directory={directory} selected={filter} onSelect={setFilter} cardScale={cardScale} onCardScaleChange={setCardScale} />}<div className="card-grid" style={{ "--card-scale": cardScale } as CSSProperties}>{filter.kind === "latest" && directory.loading && <p role="status">{t("Loading latest releases\u2026")}</p>}{filter.kind === "latest" && directory.error && <p role="alert">Latest releases are unavailable. <button type="button" onClick={directory.retry}>{t("Retry")}</button></p>}{!catalogue.loading && !catalogue.error && !(filter.kind === "latest" && (directory.loading || directory.error)) && results.length === 0 && <p>{t("No items match this selection.")}</p>}{(singles ? groupedCards : groupedCards.slice(0, 20)).map(group => <ProductCard key={group.id} group={group} cart={cart} disabled={commerce.disabled} onAdd={card => void add(card)} />)}{singles && <div className="catalogue-pagination" ref={catalogue.sentinel}>{catalogue.loading && <p role="status">{t("Loading cards\u2026")}</p>}{catalogue.error && <p role="alert">{catalogue.error} <button type="button" onClick={catalogue.retry}>{t("Retry")}</button></p>}{!catalogue.loading && !catalogue.error && catalogue.nextOffset !== null && <button type="button" onClick={catalogue.more}>{t("Load more cards")}</button>}</div>}{!singles && catalogue.loading && <p role="status">{t("Loading latest singles\u2026")}</p>}{!singles && catalogue.error && <p role="alert">{catalogue.error} <button onClick={catalogue.retry}>{t("Retry")}</button></p>}</div></div></section>}
@@ -149,7 +149,6 @@ export function Shop({ singles = false, sealedView, initialLanguage, buyCards=fa
     {!shopSection && !singles && !standalone && sealedView === undefined && (["custom","accessories"] as const).map(key => sections[key] && sections[key === "custom" ? "homeCustom" : "homeAccessories"] && <ShopSectionBrowser onSeen={items => items.forEach(item => knownStock.current.set(item.id, item.stock))} key={key} home section={key} query="" cart={cart} disabled={commerce.disabled} onAdd={card => void add(card)} />)}
     {!legal&&<ServiceHighlights onOpenBulk={()=>setBulkOpenRequest(value=>value+1)} />}<SiteFooter testCheckout={sections.testCheckout} demo={commerce.demoMode} />
     {cartOpen && <div className="overlay"><aside className="drawer"><div className="drawer-head"><div><p className="eyebrow">{t("Your selection")}</p><h2>{t("Cart")}</h2></div><button className="close" type="button" onClick={() => setCartOpen(false)}>×</button></div><button className="text-button" type="button" disabled={commerce.disabled} onClick={() => { if (customer) void commerce.logout(); else { setCartOpen(false); setLoginOpen(true); } }}>{customer ? `${t("Log out")} ${customer}` : t("Log in to your account")}</button>{cart.length === 0 ? <p className="empty">{t("Your cart is empty. Add a card to begin.")}</p> : <><div className="cart-lines">{cart.map(item => <CartLineView key={item.id} item={item} price={price} disabled={commerce.disabled} availableStock={item.stock ?? cards.find(card => card.id === item.id)?.stock ?? knownStock.current.get(item.id) ?? null} onQuantity={quantity} />)}</div>{commerce.error && <p role="alert">{commerce.error}</p>}{cartHasUnavailable(cart)&&<p className="checkout-note" role="status">{t("Some items are no longer available in the quantity you chose. Remove them or adjust the quantity; they are not counted in the subtotal.")}</p>}<div className="cart-total"><span>{t("Subtotal")}</span><strong>{price(total)}</strong></div><button className="checkout" type="button" disabled={!sections.testCheckout||commerce.disabled||itemCount===0||cartHasUnavailable(cart)} onClick={()=>void startCheckout()}>{customer?t("Continue to checkout"):t("Create account to check out")}</button><p className="checkout-note">{sections.testCheckout?(customer?t("Test checkout: your order is saved as Not paid and no payment is taken."):t("Create a free account to place your order. Your cart will be saved to it.")):t("Secure Mercado Pago checkout is the next payment milestone.")}</p></>}</aside></div>}
-    {checkoutOpen && <CheckoutDialog cart={cart} total={total} customer={customer} price={price} onClose={()=>setCheckoutOpen(false)} onBackToCart={()=>{setCheckoutOpen(false);setCartOpen(true);}} onSubmit={contact=>commerce.checkout(contact,locale)} />}
     {loginOpen && <AuthDialog mode={register?"register":"login"} onMode={mode=>{setRegister(mode==="register");setAuthError("");}} checkoutPending={checkoutPending} demo={commerce.demoMode} busy={authBusy||commerce.busy} error={authError||commerce.error} onSubmit={values=>void submitAuth(values)} onClose={()=>{setLoginOpen(false);setCheckoutPending(false);setAuthError("");}} />}
   </main>;
 }

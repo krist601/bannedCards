@@ -24,7 +24,12 @@ export type CatalogueItem = {
   attributes?: Record<string, string>;
 };
 
-export type CheckoutContact = { name?: string; phone?: string; address?: string; city?: string; notes?: string };
+export type CheckoutCompany = { rut: string; name: string; activity: string; address: string; comuna: string };
+/** Delivery and tax-document data. \`city\` is the comuna. Everything is optional so the older, shorter form keeps working. */
+export type CheckoutContact = {
+  name?: string; lastName?: string; phone?: string; address?: string; address2?: string; city?: string; region?: string; branch?: string; notes?: string;
+  document?: "boleta" | "factura"; rut?: string; company?: CheckoutCompany; shipping?: "starken";
+};
 export type PlacedOrder = { id: string; displayId: number; total: number; currency: string; paymentStatus: "paid" | "not_paid"; emailSent: boolean; items: { title: string; quantity: number; unitPrice: number }[] };
 export type CartLine = Omit<CatalogueItem, "price"> & { price: number; quantity: number; lineId?: string };
 export type Cart = CartLine[];

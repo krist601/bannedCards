@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createCommerceRepositories, demoMode } from "@/adapters/commerce-repositories";
 import type { CommerceRepositories } from "@/application/ports";
 import type { BulkAllocation } from "@/application/bulk-cards";
-import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder } from "@/domain/commerce";
+import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder, WebpayStart } from "@/domain/commerce";
 
 /** Driving adapter: coordinates async ports and view state, never vendor API calls. */
 export function useCommerce() {
@@ -71,6 +71,17 @@ export function useCommerce() {
       catch (error) { try { setCart(await ports.cart.load()); } catch { /* keep the old view */ } throw error; }
       finally { locked.current = false; setBusy(false); }
     },
+    /** Starts a Webpay payment. The cart stays as it is; the caller sends the shopper to the returned address. */
+    startWebpay: async (contact: CheckoutContact, locale: "es" | "en"): Promise<WebpayStart> => {
+      const ports = repositories.current;
+      if (locked.current || !ready || !ports?.cart.startWebpay) throw new Error("The store is busy. Please try again in a moment.");
+      locked.current = true; setBusy(true);
+      try { return await ports.cart.startWebpay(contact, locale); }
+      catch (error) { try { setCart(await ports.cart.load()); } catch { /* keep the old view */ } throw error; }
+      finally { locked.current = false; setBusy(false); }
+    },
+    /** After an approved payment: the server closed the cart, so forget it here. */
+    forgetCart: () => { repositories.current?.cart.clearLocal(); setCart([]); },
     quantity: (id: string, value: number) => run(async ports => { setCart(await ports.cart.setQuantity(id, value)); }),
     login: (email: string, password: string) => run(async ports => { setCustomer(await ports.customer.login(email, password)); if(ports.cart.syncCustomer)setCart(await ports.cart.syncCustomer()); }),
     logout: () => run(async ports => {

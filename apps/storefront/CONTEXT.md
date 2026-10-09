@@ -135,3 +135,10 @@ Keep `domain`/`application` independent of React, Next and Medusa. UI forwards a
 - Form rules are pure and tested: `application/checkout-form.ts` (validation, `toCheckoutContact`), `application/rut.ts` (modulo-11 RUT), regions and RM comunas in `config/chile.ts`.
 - Contact sent to `/store/test-checkout` carries `lastName, region, address2, branch, document ("boleta"|"factura"), rut | company{rut,name,activity,address,comuna}, shipping:"starken"`; the backend validates it only when `document` is present.
 - Only Starken (envío por pagar) is offered. The success view links to `/mi-cuenta?tab=orders&order=<id>`, which scrolls to and highlights that order.
+
+## Webpay (Transbank) payments
+- Settings switch `webpay` (CMS: Storefront sections → Checkout). With it on, the checkout page offers "Pagar con Webpay" (test checkout stays an option while its own switch is on).
+- Flow: `POST /store/webpay/create` (signed in; creates the order with stock reserved, cart stays open, returns Webpay url + token) → browser POSTs `token_ws` to Webpay → Transbank returns to `/webpay/retorno` (route handler, GET or POST) → redirects to `/webpay/resultado` → `presentation/webpay-result.tsx` calls `POST /store/webpay/result` (no sign-in; the token is the proof) → backend commits with Transbank, marks the order paid and emails, or releases the stock.
+- Backend: `src/lib/webpay.ts` (REST client, integration by default), `src/lib/webpay-orders.ts` (start/confirm/abort/settle), job `src/jobs/settle-webpay-orders.ts` (every 10 min; unpaid after 30 min → commit if paid, else release).
+- Production: set `WEBPAY_ENV=production`, `WEBPAY_COMMERCE_CODE`, `WEBPAY_API_SECRET` on the backend after Transbank validates the integration.
+

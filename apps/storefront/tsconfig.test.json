@@ -22,6 +22,7 @@
     "src/application/filter-catalogue.ts",
     "src/application/cart.ts",
     "src/application/rut.ts",
+    "src/application/webpay.ts",
     "src/application/checkout-form.ts",
     "src/config/chile.ts"
   ],

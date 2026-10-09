@@ -225,6 +225,18 @@ export function createMedusaRepositories(config: MedusaConfig, storage: Pick<Sto
         return { id: order.id, displayId: order.display_id, total: order.total, currency: order.currency_code, paymentStatus: order.payment_status === "paid" ? "paid" : "not_paid", emailSent: body.email_sent === true,
           items: ((order.items ?? []) as { title: string; quantity: number; unit_price: number }[]).map(item => ({ title: item.title, quantity: item.quantity, unitPrice: item.unit_price })) };
       }),
+      startWebpay: (contact, locale) => serial(async () => {
+        const cart = await current();
+        if (!cart) throw new CheckoutFailed("cart_empty", "Your cart is empty.");
+        const response = await fetcher(`${config.url.replace(/\/$/, "")}/store/webpay/create`, {
+          signal: AbortSignal.timeout(30000), method: "POST", credentials: "include", cache: "no-store",
+          headers: { "Content-Type": "application/json", "x-publishable-api-key": config.publishableKey },
+          body: JSON.stringify({ cart_id: cart.id, contact, locale })
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new CheckoutFailed(String(body.code ?? "webpay_failed"), String(body.message ?? "The payment could not be started. Nothing was charged."), Array.isArray(body.problems) ? body.problems : []);
+        return { url: String(body.url ?? ""), token: String(body.token ?? "") };
+      }),
       clearLocal: () => storage.removeItem(key)
     },
     customer: {

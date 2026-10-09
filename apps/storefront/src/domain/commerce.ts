@@ -31,5 +31,16 @@ export type CheckoutContact = {
   document?: "boleta" | "factura"; rut?: string; company?: CheckoutCompany; shipping?: "starken";
 };
 export type PlacedOrder = { id: string; displayId: number; total: number; currency: string; paymentStatus: "paid" | "not_paid"; emailSent: boolean; items: { title: string; quantity: number; unitPrice: number }[] };
+export type WebpayStart = { url: string; token: string };
+export type WebpayOrderView = {
+  id: string; display_id: number; total: number; currency_code: string; payment_status: "paid" | "not_paid";
+  items: { title: string; quantity: number; unit_price: number; thumbnail: string | null }[];
+  delivery: { name: string; phone?: string; address: string; address2?: string; comuna: string; region?: string; branch?: string } | null;
+  document: { type: "boleta" | "factura"; rut: string; company?: { name: string } } | null; notes: string;
+};
+/** What the store says about a payment the shopper just finished (or abandoned) at Webpay. */
+export type WebpayOutcome =
+  | { status: "approved"; order: WebpayOrderView; email_sent: boolean; payment: { card_last4: string; authorization_code: string; installments: number; environment: string } }
+  | { status: "rejected" | "aborted" | "review" | "unknown"; order?: WebpayOrderView; message?: string };
 export type CartLine = Omit<CatalogueItem, "price"> & { price: number; quantity: number; lineId?: string };
 export type Cart = CartLine[];

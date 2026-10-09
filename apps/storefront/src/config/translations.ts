@@ -1,4 +1,4 @@
-export const spanish:Record<string,string>={
+export const spanish:Record<string,string>={'Pay securely with Webpay: credit, debit and prepaid cards.':'Paga de forma segura con Webpay: tarjetas de crédito, débito y prepago.','Payments are not available right now.':'Los pagos no están disponibles por ahora.',
 "Latest sealed releases":"Últimos lanzamientos sellados",
 "Filters":"Filtros","Close filters":"Cerrar filtros","Done":"Listo",
 "Featured singles":"Cartas destacadas","Most expensive cards":"Cartas de mayor valor","Our 20 most expensive available cards":"Nuestras 20 cartas disponibles de mayor valor",

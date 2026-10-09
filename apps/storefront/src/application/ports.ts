@@ -1,4 +1,4 @@
-import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder } from "@/domain/commerce";
+import type { Cart, CatalogueItem, CheckoutContact, PlacedOrder, WebpayStart } from "@/domain/commerce";
 
 /** Async outbound ports; no framework or vendor types cross this boundary. */
 export interface CatalogueRepository {
@@ -12,6 +12,8 @@ export interface CartRepository {
   syncCustomer?(): Promise<Cart>;
   /** Places an order from the saved cart (test checkout: no payment). Throws CheckoutFailed with the products that ran out. */
   checkout?(contact: CheckoutContact, locale: "es" | "en"): Promise<PlacedOrder>;
+  /** Creates the order (stock reserved) and asks Webpay for a payment link. The cart stays open until the payment is approved. */
+  startWebpay?(contact: CheckoutContact, locale: "es" | "en"): Promise<WebpayStart>;
 }
 export interface CustomerSessionRepository {
   load(): Promise<string>;

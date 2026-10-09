@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Cart, CheckoutContact, PlacedOrder } from "@/domain/commerce";
+import type { Cart, CheckoutContact, PlacedOrder, WebpayStart } from "@/domain/commerce";
 import { cartTotal, purchasableQuantity } from "@/application/cart";
 import { emptyCheckoutForm, toCheckoutContact, validateCheckoutForm, type CheckoutErrors, type CheckoutForm } from "@/application/checkout-form";
 import { formatRut } from "@/application/rut";
+import { isWebpayUrl } from "@/application/webpay";
 import { CheckoutFailed, type StockProblem } from "@/adapters/medusa-repositories";
 import { loadProfile } from "@/adapters/account-repository";
 import { metropolitanComunas, regions } from "@/config/chile";
@@ -27,6 +28,8 @@ const text = {
     trust: ["Stock real, reservado para ti", "Despacho a todo Chile con Starken", "Condición indicada en cada carta"],
     required: "Este dato es obligatorio.", badPhone: "Ingresa un teléfono válido.", badRut: "El RUT no es válido. Revisa el número y el dígito verificador.", fixErrors: "Revisa los campos marcados para continuar.",
     stockRanOut: "Algunos productos se agotaron mientras comprabas. Tu pedido no fue realizado.", youAsked: "pediste", only: "quedan", none: "agotado", failed: "No se pudo realizar el pedido. No se hizo ningún cobro.",
+    payment: "Método de pago", paymentHint: "Elige cómo quieres pagar.", webpay: "Webpay", webpayText: "Tarjetas de crédito, débito y prepago", webpaySafe: "Pagas en el sitio seguro de Transbank. Nosotros no guardamos los datos de tu tarjeta.", testMethod: "Pedido de prueba", testMethodText: "Sin cobro: el pedido queda como “No pagado”",
+    payWebpay: "Pagar con Webpay", redirecting: "Redirigiendo a Webpay…", webpayNote: "Te llevaremos a Webpay para pagar. Reservamos tu stock por 30 minutos.", noPayments: "Los pagos están desactivados por ahora. Vuelve pronto.",
     needLogin: "Inicia sesión para finalizar tu compra", needLoginText: "Crea una cuenta gratis o ingresa a la tuya. Tu carrito se guarda en ella.", login: "Iniciar sesión o crear cuenta",
     empty: "Tu carrito está vacío", emptyText: "Agrega productos para poder finalizar tu compra.", shop: "Ver cartas sueltas",
     loading: "Cargando tu carrito…",
@@ -47,6 +50,8 @@ const text = {
     trust: ["Real stock, reserved for you", "Shipping across Chile with Starken", "Condition shown on every card"],
     required: "This field is required.", badPhone: "Enter a valid phone number.", badRut: "The RUT is not valid. Check the number and check digit.", fixErrors: "Check the highlighted fields to continue.",
     stockRanOut: "Some products ran out while you were checking out. Your order was not placed.", youAsked: "you asked for", only: "left", none: "sold out", failed: "The order could not be placed. Nothing was charged.",
+    payment: "Payment method", paymentHint: "Choose how you want to pay.", webpay: "Webpay", webpayText: "Credit, debit and prepaid cards", webpaySafe: "You pay on Transbank's secure site. We never store your card details.", testMethod: "Test order", testMethodText: "No charge: the order is saved as “Not paid”",
+    payWebpay: "Pay with Webpay", redirecting: "Redirecting to Webpay…", webpayNote: "We'll take you to Webpay to pay. Your stock is reserved for 30 minutes.", noPayments: "Payments are turned off for now. Please come back soon.",
     needLogin: "Sign in to complete your purchase", needLoginText: "Create a free account or sign in. Your cart is saved to it.", login: "Sign in or create account",
     empty: "Your cart is empty", emptyText: "Add products to be able to check out.", shop: "Browse singles",
     loading: "Loading your cart…",
@@ -66,15 +71,26 @@ const NoteIcon = () => <svg {...icon}><path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h4
 const Thumb = ({ line, badge }: { line: Cart[number]; badge?: number }) => <div className={`co-thumb ${line.theme}`}>{line.imageUrl ? <CardImage item={line} compact /> : <span className="co-thumb-empty" aria-hidden="true">📦</span>}{badge ? <em>{badge}</em> : null}</div>;
 const LockIcon = () => <svg {...icon}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>;
 
-type Props = { cart: Cart; customer: string; loading: boolean; demo: boolean; price(value: number): string; onLogin(): void; onSubmit(contact: CheckoutContact): Promise<PlacedOrder> };
+type Props = { cart: Cart; customer: string; loading: boolean; demo: boolean; payments: { webpay: boolean; test: boolean }; price(value: number): string; onLogin(): void; onSubmit(contact: CheckoutContact): Promise<PlacedOrder>; onWebpay(contact: CheckoutContact): Promise<WebpayStart> };
+
+/** Sends the shopper to Webpay: the browser posts the token to Transbank, which shows its payment form. */
+function goToWebpay({ url, token }: WebpayStart) {
+  const form = document.createElement("form");
+  form.method = "POST"; form.action = url;
+  const input = document.createElement("input");
+  input.type = "hidden"; input.name = "token_ws"; input.value = token;
+  form.appendChild(input); document.body.appendChild(form); form.submit();
+}
 
 /** The full-page checkout: contact, delivery (Starken), tax document (boleta or factura), and an order summary with pictures. */
-export function CheckoutPage({ cart, customer, loading, demo, price, onLogin, onSubmit }: Props) {
+export function CheckoutPage({ cart, customer, loading, demo, payments, price, onLogin, onSubmit, onWebpay }: Props) {
   const { locale } = useLocale();
   const l = text[locale === "en" ? "en" : "es"];
   const [form, setForm] = useState<CheckoutForm>(emptyCheckoutForm);
   const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<CheckoutErrors>({});
+  const [method, setMethod] = useState<"webpay" | "test">("webpay"), [redirecting, setRedirecting] = useState(false);
+  const payBy: "webpay" | "test" | null = method === "webpay" && payments.webpay ? "webpay" : payments.test && (method === "test" || !payments.webpay) ? "test" : payments.webpay ? "webpay" : null;
   const [busy, setBusy] = useState(false), [error, setError] = useState(""), [problems, setProblems] = useState<StockProblem[]>([]);
   const [placed, setPlaced] = useState<{ order: PlacedOrder; lines: Cart; contact: CheckoutContact } | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -108,9 +124,18 @@ export function CheckoutPage({ cart, customer, loading, demo, price, onLogin, on
       requestAnimationFrame(() => formRef.current?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus());
       return;
     }
+    if (!payBy) { setError(l.noPayments); return; }
     setBusy(true);
     const contact = toCheckoutContact(form);
+    let leaving = false;
     try {
+      if (payBy === "webpay") {
+        const start = await onWebpay(contact);
+        if (!isWebpayUrl(start.url) || !start.token) throw new Error(l.failed);
+        try { window.localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, notes: "" })); } catch { /* storage may be blocked */ }
+        leaving = true; setRedirecting(true); goToWebpay(start);
+        return;
+      }
       const order = await onSubmit(contact);
       try { window.localStorage.setItem(SAVED_KEY, JSON.stringify({ ...form, notes: "" })); } catch { /* storage may be blocked */ }
       setPlaced({ order, lines, contact });
@@ -118,7 +143,7 @@ export function CheckoutPage({ cart, customer, loading, demo, price, onLogin, on
     } catch (failure) {
       if (failure instanceof CheckoutFailed && failure.problems.length) { setProblems(failure.problems); setError(l.stockRanOut); }
       else setError(failure instanceof Error && failure.message ? failure.message : l.failed);
-    } finally { setBusy(false); }
+    } finally { if (!leaving) setBusy(false); }
   }
 
   const field = (key: keyof CheckoutForm, label: string, options: { type?: string; autoComplete?: string; inputMode?: "text" | "tel" | "numeric"; max?: number; wide?: boolean; list?: string; hint?: string; placeholder?: string; format?: (value: string) => string } = {}) => {
@@ -225,13 +250,26 @@ export function CheckoutPage({ cart, customer, loading, demo, price, onLogin, on
           </div>
         </section>
 
+        <section className="co-card" aria-labelledby="co-pay">
+          <h2 id="co-pay"><LockIcon />{l.payment}</h2>
+          {payBy ? <>
+            <p className="co-hint">{l.paymentHint}</p>
+            <div className="co-choice" role="radiogroup" aria-label={l.payment}>
+              {payments.webpay && <label className={payBy === "webpay" ? "is-selected" : ""}><input type="radio" name="method" checked={payBy === "webpay"} onChange={() => setMethod("webpay")} /><span><strong>{l.webpay}</strong><small>{l.webpayText}</small></span></label>}
+              {payments.test && <label className={payBy === "test" ? "is-selected" : ""}><input type="radio" name="method" checked={payBy === "test"} onChange={() => setMethod("test")} /><span><strong>{l.testMethod}</strong><small>{l.testMethodText}</small></span></label>}
+            </div>
+            {payBy === "webpay" && <p className="co-hint co-secure">🔒 {l.webpaySafe}</p>}
+          </> : <p className="co-hint">{l.noPayments}</p>}
+        </section>
+
         <section className="co-card" aria-labelledby="co-notes">
           <h2 id="co-notes"><NoteIcon />{l.notes}</h2>
           <div className="co-field"><textarea id="co-notes-text" rows={3} maxLength={500} placeholder={l.notesHint} value={form.notes} onChange={event => set("notes", event.target.value)} aria-label={l.notes} /></div>
         </section>
 
-        <p className="co-testnote"><LockIcon />{l.test}</p>
-        <button className="checkout co-submit" type="submit" disabled={busy}>{busy ? l.placing : `${l.confirm} · ${price(total)}`}</button>
+        {payBy === "test" && <p className="co-testnote"><LockIcon />{l.test}</p>}
+        {payBy === "webpay" && <p className="co-testnote co-webpay-note"><LockIcon />{l.webpayNote}</p>}
+        <button className="checkout co-submit" type="submit" disabled={busy || !payBy}>{redirecting ? l.redirecting : busy ? l.placing : payBy === "webpay" ? `${l.payWebpay} · ${price(total)}` : `${l.confirm} · ${price(total)}`}</button>
       </form>
 
       <aside className="co-summary" aria-label={l.summary}>
